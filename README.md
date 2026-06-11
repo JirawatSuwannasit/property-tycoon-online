@@ -138,7 +138,7 @@ To test realtime lobby sync with two browser windows:
 6. Start the game as host.
 7. Confirm the second player sees the room status change to `playing` automatically.
 
-The lobby also keeps a manual Refresh button and a slow fallback refetch to recover from reconnects.
+The lobby status indicator shows `Live` when Supabase Realtime is connected. If realtime is unavailable but the fallback refresh loop is active, it shows `Polling` instead of `Offline`. The lobby also keeps a manual Refresh button as an extra fallback.
 
 ## Verification notes
 

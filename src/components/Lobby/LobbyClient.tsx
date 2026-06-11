@@ -47,7 +47,7 @@ type LobbyClientProps = {
   roomCode: string;
 };
 
-type LiveStatus = "connecting" | "live" | "reconnecting" | "offline";
+type LiveStatus = "connecting" | "live" | "polling" | "reconnecting" | "offline";
 
 function statusLabel(status: RoomStatus) {
   if (status === "waiting") {
@@ -85,6 +85,10 @@ function liveStatusLabel(status: LiveStatus) {
     return "Live";
   }
 
+  if (status === "polling") {
+    return "Polling";
+  }
+
   if (status === "reconnecting") {
     return "Reconnecting";
   }
@@ -99,6 +103,10 @@ function liveStatusLabel(status: LiveStatus) {
 function liveStatusClassName(status: LiveStatus) {
   if (status === "live") {
     return "bg-[#b8f2d0]";
+  }
+
+  if (status === "polling") {
+    return "bg-[#a0d8ff]";
   }
 
   if (status === "offline") {
@@ -167,7 +175,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
       refetchTimerRef.current = window.setTimeout(() => {
         refetchTimerRef.current = null;
         fetchLobby(sessionRef.current).catch((refetchError) => {
-          setLiveStatus((currentStatus) => (currentStatus === "offline" ? "offline" : "reconnecting"));
+          setLiveStatus((currentStatus) => (currentStatus === "polling" ? "polling" : "reconnecting"));
           setError(refetchError instanceof Error ? refetchError.message : "Unable to refresh lobby.");
         });
       }, delayMs);
@@ -191,11 +199,11 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         supabaseRef.current = createSupabaseBrowserClient();
       } catch (realtimeError) {
         if (realtimeSubscriptionIdRef.current === subscriptionId) {
-          setLiveStatus("offline");
+          setLiveStatus("polling");
           setError(
             realtimeError instanceof Error
-              ? `Realtime is unavailable: ${realtimeError.message}`
-              : "Realtime is unavailable in this browser.",
+              ? `Realtime is unavailable, so lobby sync is using polling: ${realtimeError.message}`
+              : "Realtime is unavailable, so lobby sync is using polling.",
           );
         }
 
@@ -235,7 +243,8 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         }
 
         if (status === "CLOSED") {
-          setLiveStatus("offline");
+          setLiveStatus("polling");
+          scheduleLobbyRefetch(0);
         }
       });
 
@@ -256,7 +265,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
     reconnectTimerRef.current = window.setTimeout(() => {
       scheduleLobbyRefetch(0);
-      setLiveStatus("offline");
+      setLiveStatus("polling");
     }, 3000);
 
     return () => {
@@ -268,15 +277,15 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
   }, [liveStatus, scheduleLobbyRefetch]);
 
   useEffect(() => {
-    if (liveStatus !== "offline") {
+    if (liveStatus !== "polling") {
       return undefined;
     }
 
-    const offlineFallbackIntervalId = window.setInterval(() => {
+    const pollingFallbackIntervalId = window.setInterval(() => {
       scheduleLobbyRefetch(0);
     }, 3000);
 
-    return () => window.clearInterval(offlineFallbackIntervalId);
+    return () => window.clearInterval(pollingFallbackIntervalId);
   }, [liveStatus, scheduleLobbyRefetch]);
 
   const activePlayerCount = useMemo(
@@ -417,8 +426,8 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
             </Link>
           </div>
           <p className="mt-5 text-xs font-bold text-[#5a4770]">
-            Lobby updates come from Supabase Realtime and refetch server-validated room state. A slow polling fallback
-            helps recover after reconnects.
+            Live means Supabase Realtime is connected. Polling means realtime is unavailable and the lobby is using a
+            fallback refresh loop.
           </p>
         </PixelPanel>
 
