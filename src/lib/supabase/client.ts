@@ -1,3 +1,4 @@
+import type { Database } from "@/lib/database.types";
 import { createBrowserClient } from "@supabase/ssr";
 
 function getRequiredEnv(name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY") {
@@ -11,7 +12,7 @@ function getRequiredEnv(name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE
 }
 
 export function createSupabaseBrowserClient() {
-  return createBrowserClient(
+  return createBrowserClient<Database>(
     getRequiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
     getRequiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
   );

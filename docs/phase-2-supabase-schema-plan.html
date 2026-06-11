@@ -342,7 +342,7 @@ $$;</code></pre>
           <li><code>id uuid primary key default gen_random_uuid()</code></li>
           <li><code>room_code text unique</code> with <code>^[A-Z0-9]{6}$</code> check.</li>
           <li><code>status</code>: <code>waiting</code>, <code>playing</code>, <code>finished</code>.</li>
-          <li><code>max_players integer default 4</code> constrained to <code>4</code>.</li>
+          <li><code>max_players integer default 4</code> constrained between <code>2</code> and <code>4</code>.</li>
           <li>Nullable <code>host_player_id</code>, <code>current_turn_player_id</code>, and <code>winner_player_id</code>.</li>
           <li><code>turn_number integer default 0</code>, <code>created_at</code>, and <code>updated_at</code>.</li>
         </ul>
@@ -368,10 +368,11 @@ $$;</code></pre>
 
         <h3><code>properties</code></h3>
         <ul>
-          <li>Room-specific ownership rows.</li>
-          <li>References <code>rooms(id)</code>, <code>game_tiles(id)</code>, and nullable <code>players(id)</code>.</li>
-          <li>Unique <code>(room_id, tile_id)</code>.</li>
-          <li>Check that <code>owner_player_id</code> and <code>purchased_at</code> are both null or both present.</li>
+          <li>Room-specific purchased property rows only; do not create empty rows for unowned properties.</li>
+          <li>References <code>rooms(id)</code>, <code>game_tiles(id)</code>, and non-null <code>players(id)</code>.</li>
+          <li><code>owner_player_id</code> is not null.</li>
+          <li><code>purchased_at</code> is not null and defaults to <code>now()</code>.</li>
+          <li>Unique <code>(room_id, tile_id)</code> prevents duplicate ownership.</li>
         </ul>
 
         <h3><code>chance_cards</code></h3>
@@ -514,7 +515,7 @@ src/lib/game/schema.ts</code></pre>
               <li>Seven required tables.</li>
               <li>Constraints, indexes, defaults, and triggers.</li>
               <li>Exactly 24 original board tiles.</li>
-              <li>About 10-12 original chance cards.</li>
+              <li>Exactly 12 original chance cards.</li>
               <li>TypeScript schema/game types.</li>
             </ul>
           </div>
@@ -527,6 +528,7 @@ src/lib/game/schema.ts</code></pre>
               <li>No dice/money/rent calculations.</li>
               <li>No realtime subscriptions.</li>
               <li>No unrelated UI work.</li>
+              <li>No Row Level Security policies yet.</li>
             </ul>
           </div>
         </div>
@@ -560,7 +562,7 @@ src/lib/game/schema.ts</code></pre>
             </tr>
             <tr>
               <td>Over-scoping Phase 2.</td>
-              <td>Limit changes to migrations and types. Do not implement API routes, lobby behavior, realtime behavior, or game rules.</td>
+              <td>Limit changes to migrations, types, and README migration notes. Do not implement API routes, lobby behavior, realtime behavior, or game rules.</td>
             </tr>
             <tr>
               <td>Realtime being mistaken for game authority.</td>

@@ -4,9 +4,9 @@ Property Tycoon Online is an original multiplayer property trading board game co
 
 This project intentionally avoids copying Monopoly branding, board layout, property names, card wording, token designs, artwork, or protected assets.
 
-## Phase 1 status
+## Project status
 
-This repository currently includes the Phase 1 application scaffold:
+This repository currently includes the Phase 1 application scaffold and Phase 2 database foundation:
 
 - Next.js App Router with TypeScript
 - Tailwind CSS configuration
@@ -14,8 +14,11 @@ This repository currently includes the Phase 1 application scaffold:
 - Placeholder homepage with create-room and join-room forms
 - Placeholder `/room/[roomCode]` page
 - Reusable pixel-style UI components
+- Supabase SQL migrations for the MVP schema
+- Seed data for exactly 24 original board tiles and 12 original chance cards
+- TypeScript database and game schema types
 
-Database schema, room creation, realtime sync, and game rules are intentionally not implemented yet.
+Room creation, lobby logic, realtime sync, and game rules are intentionally not implemented yet.
 
 ## Local setup
 
@@ -51,6 +54,44 @@ npm run dev
 ```
 
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
+
+
+## Supabase migrations
+
+Phase 2 adds the Supabase schema and seed data in:
+
+```text
+supabase/migrations/20260611000100_create_mvp_schema.sql
+supabase/migrations/20260611000200_seed_mvp_board_and_cards.sql
+```
+
+To apply these migrations with the Supabase CLI after linking your project:
+
+```bash
+supabase db push
+```
+
+Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration.
+
+After applying the migrations, verify these tables in the Supabase Table Editor:
+
+- `rooms`
+- `players`
+- `game_tiles`
+- `properties`
+- `chance_cards`
+- `game_events`
+- `game_snapshots`
+
+Also verify that `game_tiles` contains exactly 24 original board tiles and `chance_cards` contains exactly 12 original chance cards.
+
+### Security notes
+
+Phase 2 does not add Row Level Security policies yet. Authorization and security rules will be handled in a later hardening phase before real gameplay is exposed.
+
+Do not use Supabase service role keys in frontend code. The frontend should only use `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+The `players.session_token_hash` column is nullable in Phase 2. Phase 3 will use it for player session validation when room APIs are implemented.
 
 ## Vercel deployment
 
