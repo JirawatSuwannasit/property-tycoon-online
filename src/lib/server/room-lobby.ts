@@ -1,5 +1,5 @@
 import type { Database } from "@/lib/database.types";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hashSessionToken, isValidRoomCode, normalizeRoomCode } from "./session";
 
 type RoomRow = Database["public"]["Tables"]["rooms"]["Row"];
@@ -83,7 +83,7 @@ export async function getLobbyState(
     return null;
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const { data: room, error: roomError } = await supabase
     .from("rooms")
     .select(

@@ -46,9 +46,17 @@ The app expects these variables:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
 
 Use `.env.local` for local development. Do not commit `.env.local`; it is ignored by git.
+
+`SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to browser code. Do not prefix it with `NEXT_PUBLIC_`. The room/lobby API routes use this key for server-authoritative writes while keeping validation in the API layer.
+
+
+### Finding your Supabase service role key
+
+In the Supabase dashboard, open your project and go to **Project Settings → API**. Copy the **service_role** key from the project API keys section into `.env.local` as `SUPABASE_SERVICE_ROLE_KEY`. Treat this key like a password: it bypasses Row Level Security and must only be used from server-side code.
 
 ## Run the development server
 
@@ -134,7 +142,10 @@ If dependencies have not been installed yet, `npm run typecheck` and `npm run bu
 3. Add the required environment variables in the Vercel project settings:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
 4. Deploy with the default Next.js settings.
+
+If create/join room requests fail in Vercel, first confirm all three environment variables above are configured for the deployed environment. The room API routes always return JSON success/error payloads, so the browser should show a readable API error instead of an empty-response JSON parse failure.
 
 ## Implementation plan
 
