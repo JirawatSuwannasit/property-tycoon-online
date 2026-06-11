@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { PixelButton, PixelInput, PixelPanel } from "@/components/ui";
+import { parseJsonResponse } from "@/lib/client/http";
 import { savePlayerSession } from "@/lib/client/player-session";
 
 type RoomSessionResponse = {
@@ -30,10 +31,14 @@ async function submitRoomAction(path: string, payload: Record<string, string>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = (await response.json()) as RoomSessionResponse;
+  const data = await parseJsonResponse<RoomSessionResponse>(response, "The server returned an empty response.");
 
   if (!response.ok) {
     throw new Error(data.error ?? "Something went wrong. Please try again.");
+  }
+
+  if (!data.roomCode || !data.playerId || !data.sessionToken) {
+    throw new Error(data.error ?? "The server response was missing room session details.");
   }
 
   return data;

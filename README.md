@@ -145,6 +145,8 @@ If dependencies have not been installed yet, `npm run typecheck` and `npm run bu
    - `SUPABASE_SERVICE_ROLE_KEY`
 4. Deploy with the default Next.js settings.
 
+If create/join room requests fail in Vercel, first confirm all three environment variables above are configured for the deployed environment. The room API routes always return JSON success/error payloads, so the browser should show a readable API error instead of an empty-response JSON parse failure.
+
 ## Implementation plan
 
 A standalone implementation plan is available at:

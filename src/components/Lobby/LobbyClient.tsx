@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PixelButton, PixelCard, PixelPanel } from "@/components/ui";
+import { parseJsonResponse } from "@/lib/client/http";
 import { loadPlayerSession, type StoredPlayerSession } from "@/lib/client/player-session";
 import type { PlayerStatus, RoomStatus } from "@/lib/database.types";
 
@@ -90,10 +91,14 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         headers: getSessionHeaders(activeSession),
         cache: "no-store",
       });
-      const data = (await response.json()) as LobbyState & { error?: string };
+      const data = await parseJsonResponse<LobbyState>(response, "The server returned an empty lobby response.");
 
       if (!response.ok) {
         throw new Error(data.error ?? "Unable to load lobby.");
+      }
+
+      if (!data.room || !data.players) {
+        throw new Error(data.error ?? "The server response was missing lobby details.");
       }
 
       setLobbyState(data);
@@ -140,10 +145,14 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         sessionToken: session.sessionToken,
       }),
     });
-    const data = (await response.json()) as LobbyState & { error?: string };
+    const data = await parseJsonResponse<LobbyState>(response, "The server returned an empty action response.");
 
     if (!response.ok) {
       throw new Error(data.error ?? "Action failed.");
+    }
+
+    if (!data.room || !data.players) {
+      throw new Error(data.error ?? "The server response was missing lobby details.");
     }
 
     setLobbyState(data);
