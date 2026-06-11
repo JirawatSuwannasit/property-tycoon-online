@@ -65,7 +65,7 @@ function getPlayerBadge(player: LobbyPlayer) {
   return player.is_ready ? "Ready" : "Not Ready";
 }
 
-function getSessionHeaders(session: StoredPlayerSession | null) {
+function getSessionHeaders(session: StoredPlayerSession | null): HeadersInit {
   if (!session) {
     return {};
   }

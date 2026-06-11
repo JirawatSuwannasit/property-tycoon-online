@@ -50,6 +50,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       players: {
         Row: {
@@ -100,6 +101,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       game_tiles: {
         Row: {
@@ -138,6 +140,7 @@ export type Database = {
           color_group?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       properties: {
         Row: {
@@ -161,6 +164,7 @@ export type Database = {
           owner_player_id?: string;
           purchased_at?: string;
         };
+        Relationships: [];
       };
       chance_cards: {
         Row: {
@@ -196,6 +200,7 @@ export type Database = {
           target_tile_index?: number | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       game_events: {
         Row: {
@@ -225,6 +230,7 @@ export type Database = {
           payload?: Json;
           created_at?: string;
         };
+        Relationships: [];
       };
       game_snapshots: {
         Row: {
@@ -248,6 +254,7 @@ export type Database = {
           version?: number;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
