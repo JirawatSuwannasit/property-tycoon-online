@@ -6,19 +6,22 @@ This project intentionally avoids copying Monopoly branding, board layout, prope
 
 ## Project status
 
-This repository currently includes the Phase 1 application scaffold and Phase 2 database foundation:
+This repository currently includes the Phase 1 application scaffold, Phase 2 database foundation, and Phase 3 lobby flow:
 
 - Next.js App Router with TypeScript
 - Tailwind CSS configuration
 - Supabase browser/server helper files
-- Placeholder homepage with create-room and join-room forms
-- Placeholder `/room/[roomCode]` page
+- Homepage with create-room and join-room forms
+- Lobby page at `/room/[roomCode]`
 - Reusable pixel-style UI components
 - Supabase SQL migrations for the MVP schema
 - Seed data for exactly 24 original board tiles and 12 original chance cards
 - TypeScript database and game schema types
+- Create room and join room API routes
+- Browser-local player session tokens with database token hashes
+- Lobby page with player list, host badge, ready status, and start-game validation
 
-Room creation, lobby logic, realtime sync, and game rules are intentionally not implemented yet.
+Realtime sync and game rules are intentionally not implemented yet.
 
 ## Local setup
 
@@ -92,6 +95,37 @@ Phase 2 does not add Row Level Security policies yet. Authorization and security
 Do not use Supabase service role keys in frontend code. The frontend should only use `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 The `players.session_token_hash` column is nullable in Phase 2. Phase 3 will use it for player session validation when room APIs are implemented.
+
+
+## Phase 3 lobby testing
+
+After applying the Supabase migrations and setting `.env.local`, test the lobby flow manually:
+
+1. Run the development server with `npm run dev`.
+2. Open the homepage and create a room as the host with a display name.
+3. Copy the 6-character room code from the lobby.
+4. Open another browser or an incognito window and join with that room code and a second display name.
+5. In the non-host browser, toggle Ready.
+6. Confirm the host Start Game button stays disabled until there are 2-4 players and every non-host player is ready.
+7. Click Start Game as the host and confirm the room status changes to `playing`.
+
+Phase 3 uses a simple 5-second lobby polling/refetch strategy. Supabase Realtime subscriptions are planned for Phase 4.
+
+Player sessions are intentionally lightweight for the MVP lobby: the raw session token is stored only in browser `localStorage`, while only `players.session_token_hash` is stored in the database.
+
+
+## Verification notes
+
+The project includes the required runtime and type packages in `package.json`: Next.js, React, React DOM, Supabase SSR/client libraries, TypeScript, Node types, and React types.
+
+Run these checks after installing dependencies with `npm install`:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+If dependencies have not been installed yet, `npm run typecheck` and `npm run build` will fail with missing module/type errors for packages such as `next`, `react`, and `@supabase/ssr`.
 
 ## Vercel deployment
 

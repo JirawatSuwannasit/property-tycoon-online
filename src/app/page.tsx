@@ -1,4 +1,5 @@
-import { PixelButton, PixelCard, PixelInput, PixelPanel } from "@/components/ui";
+import { HomeRoomForms } from "@/components/Home/HomeRoomForms";
+import { PixelCard, PixelPanel } from "@/components/ui";
 
 const previewTiles = [
   "bg-[#ffd166]",
@@ -10,18 +11,6 @@ const previewTiles = [
   "bg-[#7bd88f]",
   "bg-[#ffd166]",
 ];
-
-function PixelDice() {
-  return (
-    <div className="pixel-border grid h-20 w-20 grid-cols-3 grid-rows-3 gap-1 bg-white p-3 pixelated" aria-hidden="true">
-      <span className="col-start-1 row-start-1 bg-[#2b1f3a]" />
-      <span className="col-start-3 row-start-1 bg-[#2b1f3a]" />
-      <span className="col-start-2 row-start-2 bg-[#2b1f3a]" />
-      <span className="col-start-1 row-start-3 bg-[#2b1f3a]" />
-      <span className="col-start-3 row-start-3 bg-[#2b1f3a]" />
-    </div>
-  );
-}
 
 function PixelBoardPreview() {
   return (
@@ -90,49 +79,7 @@ export default function Home() {
         </PixelPanel>
       </section>
 
-      <section className="mx-auto mt-10 grid max-w-7xl gap-6 lg:grid-cols-2">
-        <PixelPanel className="p-6" tone="mint">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Host a table</p>
-              <h2 className="text-3xl font-black">Create Room</h2>
-            </div>
-            <PixelDice />
-          </div>
-          <form className="space-y-5" aria-label="Create room placeholder form">
-            <PixelInput label="Display name" name="createDisplayName" placeholder="Pixel Pal" />
-            <PixelButton disabled className="w-full" type="button">
-              Create Room Soon
-            </PixelButton>
-          </form>
-          <p className="mt-4 text-sm font-semibold text-[#4d3b61]">
-            Placeholder only for Phase 1. Room creation logic will be added in a later phase.
-          </p>
-        </PixelPanel>
-
-        <PixelPanel className="p-6" tone="sky">
-          <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Join friends</p>
-            <h2 className="text-3xl font-black">Join Room</h2>
-          </div>
-          <form className="space-y-5" aria-label="Join room placeholder form">
-            <PixelInput label="Display name" name="joinDisplayName" placeholder="Cloud Cat" />
-            <PixelInput
-              label="Room code"
-              maxLength={6}
-              name="roomCode"
-              placeholder="ABC123"
-              className="uppercase tracking-[0.3em]"
-            />
-            <PixelButton disabled className="w-full" type="button" variant="secondary">
-              Join Room Soon
-            </PixelButton>
-          </form>
-          <p className="mt-4 text-sm font-semibold text-[#4d3b61]">
-            Placeholder only for Phase 1. Joining by room code will be wired to Supabase later.
-          </p>
-        </PixelPanel>
-      </section>
+      <HomeRoomForms />
     </main>
   );
 }
