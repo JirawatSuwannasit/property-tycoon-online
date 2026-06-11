@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Property Tycoon Online — Phase 2 Supabase Schema Plan</title>
+    <style>
+      :root {
+        --ink: #2b1f3a;
+        --paper: #fff7df;
+        --cream: #fff2cc;
+        --mint: #b8f2d0;
+        --sky: #a0d8ff;
+        --coral: #ff9aa2;
+        --lavender: #cdb4db;
+        --gold: #ffd166;
+        --leaf: #7bd88f;
+        --white: #fffaf0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgba(43, 31, 58, 0.055) 1px, transparent 1px),
+          linear-gradient(rgba(43, 31, 58, 0.055) 1px, transparent 1px),
+          radial-gradient(circle at 15% 0%, rgba(255, 209, 102, 0.45), transparent 28rem),
+          radial-gradient(circle at 95% 10%, rgba(160, 216, 255, 0.4), transparent 26rem),
+          var(--paper);
+        background-size: 18px 18px, 18px 18px, auto, auto, auto;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        line-height: 1.6;
+      }
+
+      code,
+      pre {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+      }
+
+      pre {
+        overflow-x: auto;
+        padding: 1rem;
+        color: var(--paper);
+        background: #1f1730;
+        border: 3px solid var(--ink);
+        box-shadow: 5px 5px 0 var(--ink);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--white);
+      }
+
+      th,
+      td {
+        padding: 0.75rem;
+        text-align: left;
+        vertical-align: top;
+        border: 2px solid var(--ink);
+      }
+
+      th {
+        background: var(--lavender);
+      }
+
+      a {
+        color: #4438ca;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 64px;
+      }
+
+      .hero,
+      .card,
+      .mini-card {
+        background: rgba(255, 247, 223, 0.96);
+        border: 3px solid var(--ink);
+        box-shadow: 6px 6px 0 var(--ink);
+      }
+
+      .hero {
+        position: relative;
+        padding: clamp(24px, 5vw, 56px);
+        margin-bottom: 28px;
+        overflow: hidden;
+      }
+
+      .hero::after {
+        position: absolute;
+        top: 28px;
+        right: 28px;
+        width: 144px;
+        height: 144px;
+        content: "";
+        background:
+          linear-gradient(var(--gold) 0 0) 0 0 / 24px 24px no-repeat,
+          linear-gradient(var(--mint) 0 0) 24px 0 / 24px 24px no-repeat,
+          linear-gradient(var(--sky) 0 0) 48px 0 / 24px 24px no-repeat,
+          linear-gradient(var(--coral) 0 0) 72px 0 / 24px 24px no-repeat,
+          linear-gradient(var(--lavender) 0 0) 96px 0 / 24px 24px no-repeat,
+          linear-gradient(var(--leaf) 0 0) 120px 0 / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 0 24px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 120px 24px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 0 48px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 120px 48px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 0 72px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 120px 72px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 0 96px / 24px 24px no-repeat,
+          linear-gradient(var(--ink) 0 0) 120px 96px / 24px 24px no-repeat,
+          linear-gradient(var(--gold) 0 0) 0 120px / 24px 24px no-repeat,
+          linear-gradient(var(--mint) 0 0) 24px 120px / 24px 24px no-repeat,
+          linear-gradient(var(--sky) 0 0) 48px 120px / 24px 24px no-repeat,
+          linear-gradient(var(--coral) 0 0) 72px 120px / 24px 24px no-repeat,
+          linear-gradient(var(--lavender) 0 0) 96px 120px / 24px 24px no-repeat,
+          linear-gradient(var(--leaf) 0 0) 120px 120px / 24px 24px no-repeat;
+        image-rendering: pixelated;
+        opacity: 0.35;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        padding: 4px 10px;
+        margin-bottom: 16px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        background: var(--mint);
+        border: 2px solid var(--ink);
+        box-shadow: 3px 3px 0 var(--ink);
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.15;
+      }
+
+      h1 {
+        max-width: 820px;
+        margin: 0 0 16px;
+        font-size: clamp(2.35rem, 7vw, 5.2rem);
+        letter-spacing: -0.06em;
+      }
+
+      h2 {
+        margin: 0 0 18px;
+        font-size: clamp(1.55rem, 4vw, 2.4rem);
+      }
+
+      h3 {
+        margin: 24px 0 8px;
+      }
+
+      .subtitle {
+        max-width: 760px;
+        margin: 0;
+        font-size: 1.08rem;
+        font-weight: 700;
+      }
+
+      .card {
+        padding: clamp(18px, 4vw, 30px);
+        margin-bottom: 28px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+      }
+
+      .mini-card {
+        padding: 16px;
+      }
+
+      .callout {
+        padding: 14px 16px;
+        margin: 16px 0;
+        background: var(--sky);
+        border: 2px solid var(--ink);
+      }
+
+      .warning {
+        background: var(--gold);
+      }
+
+      .success {
+        background: var(--mint);
+      }
+
+      .danger {
+        background: var(--coral);
+      }
+
+      .toc {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .toc a,
+      .pill {
+        display: block;
+        padding: 10px 12px;
+        color: var(--ink);
+        text-decoration: none;
+        background: var(--cream);
+        border: 2px solid var(--ink);
+        box-shadow: 3px 3px 0 var(--ink);
+      }
+
+      .toc a:hover {
+        transform: translate(1px, 1px);
+        box-shadow: 2px 2px 0 var(--ink);
+      }
+
+      .checklist li {
+        margin-bottom: 0.35rem;
+      }
+
+      .footer {
+        padding: 20px;
+        text-align: center;
+        color: rgba(43, 31, 58, 0.72);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <span class="eyebrow">Phase 2 Plan</span>
+        <h1>Supabase Schema + Seed Data</h1>
+        <p class="subtitle">
+          Focused plan for adding the MVP database foundation for Property Tycoon Online: seven tables, constraints, indexes, TypeScript schema types, and original 24-tile board/chance-card seed data.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="toc-title">
+        <h2 id="toc-title">Contents</h2>
+        <ol class="toc">
+          <li><a href="#repo-state">Current repository state</a></li>
+          <li><a href="#migration-structure">SQL migration structure</a></li>
+          <li><a href="#tables">Schema details</a></li>
+          <li><a href="#seed-data">Seed data strategy</a></li>
+          <li><a href="#typescript-types">TypeScript type files</a></li>
+          <li><a href="#phase-boundaries">Phase boundaries</a></li>
+          <li><a href="#risks">Risks</a></li>
+          <li><a href="#first-step">First implementation step</a></li>
+        </ol>
+      </section>
+
+      <section id="repo-state" class="card">
+        <h2>1. Current repository state after Phase 1</h2>
+        <p>Phase 1 has created the application scaffold, but there is no Supabase schema yet.</p>
+        <div class="grid">
+          <div class="mini-card">
+            <h3>Already present</h3>
+            <ul>
+              <li>Next.js App Router and TypeScript scaffold.</li>
+              <li>Tailwind CSS and pixel-art global styles.</li>
+              <li>Reusable pixel UI components.</li>
+              <li>Placeholder homepage and room page.</li>
+              <li>Supabase client/server helpers using environment variables.</li>
+            </ul>
+          </div>
+          <div class="mini-card">
+            <h3>Not present yet</h3>
+            <ul>
+              <li>No <code>supabase/</code> directory.</li>
+              <li>No database migration files.</li>
+              <li>No seeded board tiles or chance cards.</li>
+              <li>No database/game schema TypeScript types.</li>
+              <li>No room, lobby, realtime, or gameplay logic.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout success">
+          <strong>Phase 2 goal:</strong> Add the database foundation only. Do not implement API routes, room creation, lobby logic, or game rules.
+        </div>
+      </section>
+
+      <section id="migration-structure" class="card">
+        <h2>2. Proposed exact SQL migration structure</h2>
+        <p>Create two migrations so schema and static seed content are easy to review separately.</p>
+        <pre><code>supabase/
+  migrations/
+    20260611000100_create_mvp_schema.sql
+    20260611000200_seed_mvp_board_and_cards.sql</code></pre>
+        <h3>Migration 1 responsibilities</h3>
+        <ul>
+          <li>Enable <code>pgcrypto</code> for UUID generation.</li>
+          <li>Create an <code>updated_at</code> trigger helper.</li>
+          <li>Create the seven required MVP tables.</li>
+          <li>Add constraints, indexes, defaults, and update triggers.</li>
+          <li>Add room-to-player foreign keys after the <code>players</code> table exists.</li>
+        </ul>
+        <h3>Migration 2 responsibilities</h3>
+        <ul>
+          <li>Seed exactly 24 original board tiles.</li>
+          <li>Seed 12 original chance cards.</li>
+          <li>Use <code>on conflict</code> upserts for local re-runs.</li>
+        </ul>
+      </section>
+
+      <section id="tables" class="card">
+        <h2>3. Schema details</h2>
+        <p>The schema should use server-authoritative state and enforce useful constraints without implementing gameplay yet.</p>
+
+        <h3>Shared SQL setup</h3>
+        <pre><code>create extension if not exists pgcrypto;
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;</code></pre>
+
+        <h3><code>rooms</code></h3>
+        <ul>
+          <li><code>id uuid primary key default gen_random_uuid()</code></li>
+          <li><code>room_code text unique</code> with <code>^[A-Z0-9]{6}$</code> check.</li>
+          <li><code>status</code>: <code>waiting</code>, <code>playing</code>, <code>finished</code>.</li>
+          <li><code>max_players integer default 4</code> constrained to <code>4</code>.</li>
+          <li>Nullable <code>host_player_id</code>, <code>current_turn_player_id</code>, and <code>winner_player_id</code>.</li>
+          <li><code>turn_number integer default 0</code>, <code>created_at</code>, and <code>updated_at</code>.</li>
+        </ul>
+
+        <h3><code>players</code></h3>
+        <ul>
+          <li>References <code>rooms(id)</code> with cascade delete.</li>
+          <li><code>seat_no</code> constrained to 1 through 4 and unique per room.</li>
+          <li><code>status</code>: <code>active</code>, <code>bankrupt</code>, <code>left</code>.</li>
+          <li><code>money integer default 1500</code>, <code>position integer default 0</code>, <code>jail_turns integer default 0</code>.</li>
+          <li><code>session_token_hash</code> nullable for future identity validation.</li>
+          <li>Add indexes on <code>room_id</code> and <code>(room_id, status)</code>.</li>
+        </ul>
+
+        <h3><code>game_tiles</code></h3>
+        <ul>
+          <li><code>tile_index</code> unique and constrained from 0 to 23.</li>
+          <li><code>type</code>: <code>start</code>, <code>property</code>, <code>tax</code>, <code>chance</code>, <code>jail</code>, <code>go_to_jail</code>, <code>bonus</code>.</li>
+          <li>Property rows require <code>price</code> and <code>rent</code>.</li>
+          <li><code>amount</code> supports future start, tax, and bonus effects.</li>
+          <li>Add indexes on <code>type</code> and <code>color_group</code>.</li>
+        </ul>
+
+        <h3><code>properties</code></h3>
+        <ul>
+          <li>Room-specific ownership rows.</li>
+          <li>References <code>rooms(id)</code>, <code>game_tiles(id)</code>, and nullable <code>players(id)</code>.</li>
+          <li>Unique <code>(room_id, tile_id)</code>.</li>
+          <li>Check that <code>owner_player_id</code> and <code>purchased_at</code> are both null or both present.</li>
+        </ul>
+
+        <h3><code>chance_cards</code></h3>
+        <ul>
+          <li><code>card_key</code> unique and stable.</li>
+          <li><code>type</code>: <code>receive_money</code>, <code>pay_money</code>, <code>move_to_start</code>, <code>move_steps</code>, <code>go_to_jail</code>.</li>
+          <li>Nullable <code>amount</code>, <code>steps</code>, and <code>target_tile_index</code>.</li>
+          <li>Constrain <code>target_tile_index</code> to 0 through 23 when present.</li>
+        </ul>
+
+        <h3><code>game_events</code></h3>
+        <ul>
+          <li>Append-only room event log for future display/refetch.</li>
+          <li>References <code>rooms(id)</code> and nullable <code>players(id)</code>.</li>
+          <li><code>payload jsonb not null default '{}'::jsonb</code>.</li>
+          <li>Index <code>(room_id, created_at desc)</code>.</li>
+        </ul>
+
+        <h3><code>game_snapshots</code></h3>
+        <ul>
+          <li>Room state snapshots for future reconnect/refetch/debugging.</li>
+          <li><code>state jsonb</code> constrained to a JSON object.</li>
+          <li><code>version integer default 1</code> with unique <code>(room_id, version)</code>.</li>
+          <li>Index <code>(room_id, created_at desc)</code>.</li>
+        </ul>
+      </section>
+
+      <section id="seed-data" class="card">
+        <h2>4. Seed data strategy</h2>
+        <p>The seed migration should be canonical for Phase 2. TypeScript should define types and constants, not duplicate all seed data unless a later phase needs it.</p>
+        <div class="callout warning">
+          <strong>Original content rule:</strong> Tile names, card names, descriptions, layout, and effects must be original cozy pixel-world content and must not copy Monopoly names, card text, board layout, artwork, branding, or token designs.
+        </div>
+
+        <h3>24 board tiles</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Index</th>
+              <th>Type</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Rent</th>
+              <th>Amount</th>
+              <th>Color</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>0</td><td>start</td><td>Pixel Plaza</td><td></td><td></td><td>200</td><td></td></tr>
+            <tr><td>1</td><td>property</td><td>Mochi Market</td><td>90</td><td>18</td><td></td><td>mint</td></tr>
+            <tr><td>2</td><td>chance</td><td>Lucky Lantern</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>3</td><td>property</td><td>Cloud Bakery</td><td>100</td><td>20</td><td></td><td>mint</td></tr>
+            <tr><td>4</td><td>tax</td><td>Snack Tax</td><td></td><td></td><td>-80</td><td></td></tr>
+            <tr><td>5</td><td>property</td><td>Bamboo Arcade</td><td>120</td><td>24</td><td></td><td>sky</td></tr>
+            <tr><td>6</td><td>bonus</td><td>Cozy Bonus</td><td></td><td></td><td>100</td><td></td></tr>
+            <tr><td>7</td><td>property</td><td>Pixel Pier</td><td>130</td><td>26</td><td></td><td>sky</td></tr>
+            <tr><td>8</td><td>jail</td><td>Nap Nook</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>9</td><td>property</td><td>Lantern Lane</td><td>150</td><td>30</td><td></td><td>coral</td></tr>
+            <tr><td>10</td><td>chance</td><td>Moon Mail</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>11</td><td>property</td><td>Sunny Studio</td><td>160</td><td>32</td><td></td><td>coral</td></tr>
+            <tr><td>12</td><td>bonus</td><td>Festival Gift</td><td></td><td></td><td>120</td><td></td></tr>
+            <tr><td>13</td><td>property</td><td>Pudding Park</td><td>180</td><td>36</td><td></td><td>lavender</td></tr>
+            <tr><td>14</td><td>tax</td><td>Repair Fee</td><td></td><td></td><td>-120</td><td></td></tr>
+            <tr><td>15</td><td>property</td><td>Starry Station</td><td>190</td><td>38</td><td></td><td>lavender</td></tr>
+            <tr><td>16</td><td>chance</td><td>Sprinkle Surprise</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>17</td><td>property</td><td>Clover Court</td><td>210</td><td>42</td><td></td><td>leaf</td></tr>
+            <tr><td>18</td><td>go_to_jail</td><td>Storm Shortcut</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>19</td><td>property</td><td>Tiny Treetop</td><td>220</td><td>44</td><td></td><td>leaf</td></tr>
+            <tr><td>20</td><td>bonus</td><td>Picnic Prize</td><td></td><td></td><td>140</td><td></td></tr>
+            <tr><td>21</td><td>property</td><td>Aurora Alley</td><td>240</td><td>48</td><td></td><td>gold</td></tr>
+            <tr><td>22</td><td>bonus</td><td>Gem Jar</td><td></td><td></td><td>160</td><td></td></tr>
+            <tr><td>23</td><td>property</td><td>Dreamy Docks</td><td>260</td><td>52</td><td></td><td>gold</td></tr>
+          </tbody>
+        </table>
+
+        <h3>12 chance cards</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Type</th>
+              <th>Title</th>
+              <th>Effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>berry_bonus</td><td>receive_money</td><td>Berry Bonus</td><td>Collect 80 coins.</td></tr>
+            <tr><td>arcade_jackpot</td><td>receive_money</td><td>Arcade Jackpot</td><td>Collect 120 coins.</td></tr>
+            <tr><td>lost_wallet_returned</td><td>receive_money</td><td>Wallet Returned</td><td>Collect 60 coins.</td></tr>
+            <tr><td>snack_spill</td><td>pay_money</td><td>Snack Spill</td><td>Pay 50 coins.</td></tr>
+            <tr><td>lantern_repair</td><td>pay_money</td><td>Lantern Repair</td><td>Pay 90 coins.</td></tr>
+            <tr><td>festival_fee</td><td>pay_money</td><td>Festival Fee</td><td>Pay 70 coins.</td></tr>
+            <tr><td>parade_to_plaza</td><td>move_to_start</td><td>Parade to Plaza</td><td>Move to tile 0.</td></tr>
+            <tr><td>tailwind_scoot</td><td>move_steps</td><td>Tailwind Scoot</td><td>Move forward 3 tiles.</td></tr>
+            <tr><td>puddle_detour</td><td>move_steps</td><td>Puddle Detour</td><td>Move back 2 tiles.</td></tr>
+            <tr><td>shortcut_map</td><td>move_steps</td><td>Shortcut Map</td><td>Move forward 5 tiles.</td></tr>
+            <tr><td>sleepy_guard</td><td>go_to_jail</td><td>Sleepy Guard</td><td>Move to tile 8.</td></tr>
+            <tr><td>moonlit_stroll</td><td>move_steps</td><td>Moonlit Stroll</td><td>Move forward 1 tile.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="typescript-types" class="card">
+        <h2>5. TypeScript type file locations</h2>
+        <p>Phase 2 should add types that match the SQL schema but should not add API behavior or game logic.</p>
+        <pre><code>src/lib/database.types.ts
+src/lib/game/types.ts
+src/lib/game/schema.ts</code></pre>
+        <h3><code>src/lib/database.types.ts</code></h3>
+        <ul>
+          <li>Define <code>Json</code>.</li>
+          <li>Define schema unions: <code>RoomStatus</code>, <code>PlayerStatus</code>, <code>TileType</code>, and <code>ChanceCardType</code>.</li>
+          <li>Define a Supabase-style <code>Database</code> type with <code>Row</code>, <code>Insert</code>, and <code>Update</code> shapes for all seven tables.</li>
+          <li>Later, Supabase helpers can be typed as <code>createBrowserClient&lt;Database&gt;(...)</code> and <code>createServerClient&lt;Database&gt;(...)</code>.</li>
+        </ul>
+        <h3><code>src/lib/game/types.ts</code></h3>
+        <ul>
+          <li>Define game-facing type aliases and DTO-like shapes.</li>
+          <li>Examples: <code>BoardTile</code>, <code>ChanceCard</code>, <code>RoomStatus</code>, <code>PlayerStatus</code>, <code>TileType</code>, and <code>ChanceCardType</code>.</li>
+        </ul>
+        <h3><code>src/lib/game/schema.ts</code></h3>
+        <ul>
+          <li>Define schema-level constants only.</li>
+          <li><code>MVP_BOARD_SIZE = 24</code></li>
+          <li><code>MIN_PLAYERS_TO_START = 2</code></li>
+          <li><code>MAX_PLAYERS_PER_ROOM = 4</code></li>
+          <li><code>STARTING_MONEY = 1500</code></li>
+          <li><code>START_TILE_INDEX = 0</code></li>
+          <li><code>JAIL_TILE_INDEX = 8</code></li>
+        </ul>
+      </section>
+
+      <section id="phase-boundaries" class="card">
+        <h2>6. Phase 2 boundaries</h2>
+        <div class="grid">
+          <div class="mini-card">
+            <h3>In scope</h3>
+            <ul class="checklist">
+              <li>Supabase SQL migrations.</li>
+              <li>Seven required tables.</li>
+              <li>Constraints, indexes, defaults, and triggers.</li>
+              <li>Exactly 24 original board tiles.</li>
+              <li>About 10-12 original chance cards.</li>
+              <li>TypeScript schema/game types.</li>
+            </ul>
+          </div>
+          <div class="mini-card">
+            <h3>Out of scope</h3>
+            <ul class="checklist">
+              <li>No room creation API.</li>
+              <li>No lobby logic.</li>
+              <li>No gameplay engine.</li>
+              <li>No dice/money/rent calculations.</li>
+              <li>No realtime subscriptions.</li>
+              <li>No unrelated UI work.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="risks" class="card">
+        <h2>7. Risks before implementation</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Risk</th>
+              <th>Mitigation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Circular foreign keys between <code>rooms</code> and <code>players</code>.</td>
+              <td>Create <code>rooms</code> first, then <code>players</code>, then add nullable player foreign keys back to <code>rooms</code>.</td>
+            </tr>
+            <tr>
+              <td>Same-room relationships are hard to fully enforce with simple FKs.</td>
+              <td>Use normal FKs in Phase 2 and enforce same-room legality in later API/server logic. Consider triggers in a future hardening phase.</td>
+            </tr>
+            <tr>
+              <td>Seed data can drift if duplicated in TypeScript.</td>
+              <td>Keep SQL seed data canonical in Phase 2. Add only types and schema constants in TypeScript.</td>
+            </tr>
+            <tr>
+              <td>Protected-content similarity.</td>
+              <td>Use only original cozy pixel-world tile/card names and avoid Monopoly board layout, names, card wording, artwork, branding, and token designs.</td>
+            </tr>
+            <tr>
+              <td>Over-scoping Phase 2.</td>
+              <td>Limit changes to migrations and types. Do not implement API routes, lobby behavior, realtime behavior, or game rules.</td>
+            </tr>
+            <tr>
+              <td>Realtime being mistaken for game authority.</td>
+              <td>Do not add realtime logic in Phase 2. Later realtime must be display/refetch only.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="first-step" class="card">
+        <h2>8. First recommended Phase 2 implementation step</h2>
+        <p>Start with the schema migration:</p>
+        <pre><code>supabase/migrations/20260611000100_create_mvp_schema.sql</code></pre>
+        <ol>
+          <li>Enable <code>pgcrypto</code>.</li>
+          <li>Add <code>set_updated_at()</code>.</li>
+          <li>Create <code>rooms</code>.</li>
+          <li>Create <code>players</code>.</li>
+          <li>Add player foreign keys back to <code>rooms</code>.</li>
+          <li>Create <code>game_tiles</code>, <code>properties</code>, <code>chance_cards</code>, <code>game_events</code>, and <code>game_snapshots</code>.</li>
+          <li>Add indexes, constraints, and update triggers.</li>
+        </ol>
+        <div class="callout success">
+          After the schema migration is in place, add the seed migration with the exact 24 board tiles and 12 chance cards, then add the TypeScript type files.
+        </div>
+      </section>
+
+      <footer class="footer">
+        Property Tycoon Online — Phase 2 database planning document.
+      </footer>
+    </main>
+  </body>
+</html>
