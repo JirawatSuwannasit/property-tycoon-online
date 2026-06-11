@@ -113,6 +113,20 @@ Phase 3 uses a simple 5-second lobby polling/refetch strategy. Supabase Realtime
 
 Player sessions are intentionally lightweight for the MVP lobby: the raw session token is stored only in browser `localStorage`, while only `players.session_token_hash` is stored in the database.
 
+
+## Verification notes
+
+The project includes the required runtime and type packages in `package.json`: Next.js, React, React DOM, Supabase SSR/client libraries, TypeScript, Node types, and React types.
+
+Run these checks after installing dependencies with `npm install`:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+If dependencies have not been installed yet, `npm run typecheck` and `npm run build` will fail with missing module/type errors for packages such as `next`, `react`, and `@supabase/ssr`.
+
 ## Vercel deployment
 
 1. Push the repository to GitHub.
