@@ -92,7 +92,16 @@ export async function getLobbyState(
     .eq("room_code", normalizedRoomCode)
     .single();
 
-  if (roomError || !room) {
+  if (roomError) {
+    if (roomError.code === "PGRST116") {
+      return null;
+    }
+
+    console.error("Failed to load lobby room", roomError);
+    throw new Error(roomError.message);
+  }
+
+  if (!room) {
     return null;
   }
 
@@ -110,13 +119,18 @@ export async function getLobbyState(
 
   if (session?.playerId && session.sessionToken) {
     const tokenHash = hashSessionToken(session.sessionToken);
-    const { data: verifiedPlayer } = await supabase
+    const { data: verifiedPlayer, error: verifiedPlayerError } = await supabase
       .from("players")
       .select("id, display_name, avatar_key, seat_no, is_host, is_ready, status, created_at")
       .eq("room_id", room.id)
       .eq("id", session.playerId)
       .eq("session_token_hash", tokenHash)
       .maybeSingle();
+
+    if (verifiedPlayerError) {
+      console.error("Failed to verify lobby player session", verifiedPlayerError);
+      throw new Error(verifiedPlayerError.message);
+    }
 
     currentPlayer = (verifiedPlayer as PublicPlayer | null) ?? null;
   }

@@ -152,6 +152,15 @@ npm run build
 
 If dependencies have not been installed yet, `npm run typecheck` and `npm run build` will fail with missing module/type errors for packages such as `next`, `react`, and `@supabase/ssr`.
 
+## Production room-loading troubleshooting
+
+If creating a room redirects to `/room/[code]` but the room page cannot load in Vercel:
+
+1. Confirm all Supabase migrations listed above have been applied, including the lobby realtime migration. The create-room route now writes the room, host player, initial `game_snapshots` row, and `game_events` audit row, so the Phase 2 tables must exist before testing in production.
+2. Confirm Vercel has these environment variables for the deployed environment: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY`.
+3. Check Vercel Function logs for JSON error messages from `/api/rooms/create` or `/api/rooms/[roomCode]`. API routes log unexpected Supabase/runtime errors and return JSON errors to the browser.
+4. If realtime env/public config is missing, the lobby should still render with a readable realtime warning and the manual Refresh button instead of crashing the page.
+
 ## Vercel deployment
 
 1. Push the repository to GitHub.

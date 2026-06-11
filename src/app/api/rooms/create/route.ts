@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Json } from "@/lib/database.types";
 import { createSessionToken, createRoomCode, hashSessionToken, isValidDisplayName, normalizeDisplayName } from "@/lib/server/session";
 import { getAvatarKeyForSeat } from "@/lib/server/room-lobby";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       const { data: room, error: roomError } = await supabase
         .from("rooms")
         .insert({ room_code: roomCode, status: "waiting", max_players: 4 })
-        .select("id, room_code")
+        .select("id, room_code, status, max_players, turn_number, created_at")
         .single();
 
       if (roomError) {
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
           continue;
         }
 
+        console.error("Failed to create room", roomError);
         return NextResponse.json({ error: roomError.message }, { status: 500 });
       }
 
@@ -56,10 +58,11 @@ export async function POST(request: Request) {
           is_ready: true,
           session_token_hash: sessionTokenHash,
         })
-        .select("id")
+        .select("id, display_name, seat_no, is_host, is_ready, status")
         .single();
 
       if (playerError) {
+        console.error("Failed to create host player", playerError);
         await supabase.from("rooms").delete().eq("id", room.id);
         return NextResponse.json({ error: playerError.message }, { status: 500 });
       }
@@ -70,8 +73,56 @@ export async function POST(request: Request) {
         .eq("id", room.id);
 
       if (updateError) {
+        console.error("Failed to assign room host", updateError);
         await supabase.from("rooms").delete().eq("id", room.id);
         return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      const initialState: Json = {
+        phase: "lobby",
+        roomId: room.id,
+        roomCode: room.room_code,
+        status: room.status,
+        maxPlayers: room.max_players,
+        hostPlayerId: player.id,
+        currentTurnPlayerId: null,
+        winnerPlayerId: null,
+        turnNumber: room.turn_number,
+        players: [
+          {
+            id: player.id,
+            displayName: player.display_name,
+            seatNo: player.seat_no,
+            isHost: player.is_host,
+            isReady: player.is_ready,
+            status: player.status,
+          },
+        ],
+        createdAt: room.created_at,
+      };
+
+      const { error: snapshotError } = await supabase
+        .from("game_snapshots")
+        .insert({ room_id: room.id, version: 1, state: initialState });
+
+      if (snapshotError) {
+        console.error("Failed to create initial room snapshot", snapshotError);
+        await supabase.from("rooms").delete().eq("id", room.id);
+        return NextResponse.json({ error: snapshotError.message }, { status: 500 });
+      }
+
+      const { error: eventError } = await supabase.from("game_events").insert({
+        room_id: room.id,
+        player_id: player.id,
+        event_type: "room_created",
+        message: `${player.display_name} created the room.`,
+        payload: { roomCode: room.room_code },
+      });
+
+      if (eventError) {
+        console.error("Failed to create room event", eventError);
+        await supabase.from("rooms").delete().eq("id", room.id);
+        return NextResponse.json({ error: eventError.message }, { status: 500 });
       }
 
       return NextResponse.json({
@@ -83,6 +134,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "Unable to generate a unique room code. Please try again." }, { status: 503 });
   } catch (error) {
+    console.error("Unexpected create-room error", error);
     return jsonError(error, "Unable to create room.");
   }
 }

@@ -64,6 +64,7 @@ export async function POST(request: Request, { params }: ReadyRouteContext) {
 
     return NextResponse.json(updatedLobbyState);
   } catch (error) {
+    console.error("Room API error", error);
     return jsonError(error, "Unable to update ready status.");
   }
 }

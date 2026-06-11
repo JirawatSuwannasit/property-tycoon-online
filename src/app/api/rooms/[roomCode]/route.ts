@@ -19,6 +19,7 @@ export async function GET(request: Request, { params }: RoomRouteContext) {
 
     return NextResponse.json(lobbyState);
   } catch (error) {
+    console.error("Room API error", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to load lobby." },
       { status: 500 },

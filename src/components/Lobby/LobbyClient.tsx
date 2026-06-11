@@ -110,7 +110,7 @@ function liveStatusClassName(status: LiveStatus) {
 
 export function LobbyClient({ roomCode }: LobbyClientProps) {
   const normalizedRoomCode = roomCode.toUpperCase();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const refetchTimerRef = useRef<number | null>(null);
   const lastRefetchAtRef = useRef(0);
@@ -177,6 +177,21 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
     setLiveStatus("connecting");
 
+    if (!supabaseRef.current) {
+      try {
+        supabaseRef.current = createSupabaseBrowserClient();
+      } catch (realtimeError) {
+        setLiveStatus("offline");
+        setError(
+          realtimeError instanceof Error
+            ? `Realtime is unavailable: ${realtimeError.message}`
+            : "Realtime is unavailable in this browser.",
+        );
+        return undefined;
+      }
+    }
+
+    const supabase = supabaseRef.current;
     const channel = supabase
       .channel(`lobby:${lobbyState.room.id}`)
       .on(
@@ -223,7 +238,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
       supabase.removeChannel(channel);
       setLiveStatus("offline");
     };
-  }, [lobbyState?.room.id, scheduleLobbyRefetch, supabase]);
+  }, [lobbyState?.room.id, scheduleLobbyRefetch]);
 
   useEffect(() => {
     if (liveStatus !== "reconnecting") {

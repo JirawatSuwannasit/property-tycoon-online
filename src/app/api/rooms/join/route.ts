@@ -112,6 +112,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "Unable to claim a seat. Please try again." }, { status: 409 });
   } catch (error) {
+    console.error("Room API error", error);
     return jsonError(error, "Unable to join room.");
   }
 }
