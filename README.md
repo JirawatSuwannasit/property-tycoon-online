@@ -75,6 +75,7 @@ Phase 2 adds the Supabase schema and seed data in:
 supabase/migrations/20260611000100_create_mvp_schema.sql
 supabase/migrations/20260611000200_seed_mvp_board_and_cards.sql
 supabase/migrations/20260611000300_enable_lobby_realtime.sql
+supabase/migrations/20260611000400_fix_lobby_realtime_access.sql
 ```
 
 To apply these migrations with the Supabase CLI after linking your project:
@@ -83,7 +84,7 @@ To apply these migrations with the Supabase CLI after linking your project:
 supabase db push
 ```
 
-Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, then the lobby realtime migration.
+Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, then both lobby realtime migrations.
 
 After applying the migrations, verify these tables in the Supabase Table Editor:
 
@@ -125,7 +126,7 @@ Player sessions are intentionally lightweight for the MVP lobby: the raw session
 
 ## Phase 4 realtime lobby testing
 
-Phase 4 subscribes the lobby page to Supabase Realtime changes for the current room's `rooms` and `players` rows. Realtime events are display/refetch triggers only: clients refetch lobby state from `/api/rooms/[roomCode]`, and all writes still go through validated API routes.
+Phase 4 subscribes the lobby page to Supabase Realtime changes for the current room's `rooms` and `players` rows. Realtime events are display/refetch triggers only: clients refetch lobby state from `/api/rooms/[roomCode]`, and all writes still go through validated API routes. The realtime access migration grants public read access only to non-sensitive lobby columns needed for change authorization; `session_token_hash`, money, position, and jail counters are not granted to browser roles.
 
 To test realtime lobby sync with two browser windows:
 
@@ -156,7 +157,7 @@ If dependencies have not been installed yet, `npm run typecheck` and `npm run bu
 
 If creating a room redirects to `/room/[code]` but the room page cannot load in Vercel:
 
-1. Confirm all Supabase migrations listed above have been applied, including the lobby realtime migration. The create-room route now writes the room, host player, initial `game_snapshots` row, and `game_events` audit row, so the Phase 2 tables must exist before testing in production.
+1. Confirm all Supabase migrations listed above have been applied, including both lobby realtime migrations. The create-room route now writes the room, host player, initial `game_snapshots` row, and `game_events` audit row, so the Phase 2 tables must exist before testing in production.
 2. Confirm Vercel has these environment variables for the deployed environment: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY`.
 3. Check Vercel Function logs for JSON error messages from `/api/rooms/create` or `/api/rooms/[roomCode]`. API routes log unexpected Supabase/runtime errors and return JSON errors to the browser.
 4. If realtime env/public config is missing, the lobby should still render with a readable realtime warning and the manual Refresh button instead of crashing the page.

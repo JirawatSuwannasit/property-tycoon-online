@@ -111,9 +111,10 @@ function liveStatusClassName(status: LiveStatus) {
 export function LobbyClient({ roomCode }: LobbyClientProps) {
   const normalizedRoomCode = roomCode.toUpperCase();
   const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  const sessionRef = useRef<StoredPlayerSession | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const refetchTimerRef = useRef<number | null>(null);
-  const lastRefetchAtRef = useRef(0);
+  const realtimeSubscriptionIdRef = useRef(0);
   const [session, setSession] = useState<StoredPlayerSession | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +138,6 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         throw new Error(data.error ?? "The server response was missing lobby details.");
       }
 
-      lastRefetchAtRef.current = Date.now();
       setLobbyState(data);
       setError(null);
     },
@@ -146,12 +146,17 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
   useEffect(() => {
     const storedSession = loadPlayerSession(normalizedRoomCode);
+    sessionRef.current = storedSession;
     setSession(storedSession);
 
     fetchLobby(storedSession)
       .catch((fetchError) => setError(fetchError instanceof Error ? fetchError.message : "Unable to load lobby."))
       .finally(() => setIsLoading(false));
   }, [fetchLobby, normalizedRoomCode]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const scheduleLobbyRefetch = useCallback(
     (delayMs = 250) => {
@@ -161,57 +166,70 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
       refetchTimerRef.current = window.setTimeout(() => {
         refetchTimerRef.current = null;
-        fetchLobby(session).catch((refetchError) => {
-          setLiveStatus("reconnecting");
+        fetchLobby(sessionRef.current).catch((refetchError) => {
+          setLiveStatus((currentStatus) => (currentStatus === "offline" ? "offline" : "reconnecting"));
           setError(refetchError instanceof Error ? refetchError.message : "Unable to refresh lobby.");
         });
       }, delayMs);
     },
-    [fetchLobby, session],
+    [fetchLobby],
   );
 
   useEffect(() => {
-    if (!lobbyState?.room.id) {
+    const roomId = lobbyState?.room.id;
+
+    if (!roomId) {
       return undefined;
     }
 
+    realtimeSubscriptionIdRef.current += 1;
+    const subscriptionId = realtimeSubscriptionIdRef.current;
     setLiveStatus("connecting");
 
     if (!supabaseRef.current) {
       try {
         supabaseRef.current = createSupabaseBrowserClient();
       } catch (realtimeError) {
-        setLiveStatus("offline");
-        setError(
-          realtimeError instanceof Error
-            ? `Realtime is unavailable: ${realtimeError.message}`
-            : "Realtime is unavailable in this browser.",
-        );
+        if (realtimeSubscriptionIdRef.current === subscriptionId) {
+          setLiveStatus("offline");
+          setError(
+            realtimeError instanceof Error
+              ? `Realtime is unavailable: ${realtimeError.message}`
+              : "Realtime is unavailable in this browser.",
+          );
+        }
+
         return undefined;
       }
     }
 
     const supabase = supabaseRef.current;
     const channel = supabase
-      .channel(`lobby:${lobbyState.room.id}`)
+      .channel(`lobby:${roomId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "players", filter: `room_id=eq.${lobbyState.room.id}` },
+        { event: "*", schema: "public", table: "players", filter: `room_id=eq.${roomId}` },
         () => scheduleLobbyRefetch(),
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${lobbyState.room.id}` },
+        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
         () => scheduleLobbyRefetch(),
       )
-      .subscribe((status) => {
+      .subscribe((status, error) => {
+        if (realtimeSubscriptionIdRef.current !== subscriptionId) {
+          return;
+        }
+
         if (status === "SUBSCRIBED") {
           setLiveStatus("live");
+          setError(null);
           return;
         }
 
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setLiveStatus("reconnecting");
+          setError(error?.message ?? "Realtime disconnected. Trying to reconnect...");
           scheduleLobbyRefetch(0);
           return;
         }
@@ -221,22 +239,8 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         }
       });
 
-    const fallbackIntervalId = window.setInterval(() => {
-      if (Date.now() - lastRefetchAtRef.current > 30000) {
-        scheduleLobbyRefetch(0);
-      }
-    }, 15000);
-
     return () => {
-      window.clearInterval(fallbackIntervalId);
-
-      if (refetchTimerRef.current) {
-        window.clearTimeout(refetchTimerRef.current);
-        refetchTimerRef.current = null;
-      }
-
       supabase.removeChannel(channel);
-      setLiveStatus("offline");
     };
   }, [lobbyState?.room.id, scheduleLobbyRefetch]);
 
@@ -250,7 +254,10 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
       return undefined;
     }
 
-    reconnectTimerRef.current = window.setTimeout(() => scheduleLobbyRefetch(0), 3000);
+    reconnectTimerRef.current = window.setTimeout(() => {
+      scheduleLobbyRefetch(0);
+      setLiveStatus("offline");
+    }, 3000);
 
     return () => {
       if (reconnectTimerRef.current) {
@@ -258,6 +265,18 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         reconnectTimerRef.current = null;
       }
     };
+  }, [liveStatus, scheduleLobbyRefetch]);
+
+  useEffect(() => {
+    if (liveStatus !== "offline") {
+      return undefined;
+    }
+
+    const offlineFallbackIntervalId = window.setInterval(() => {
+      scheduleLobbyRefetch(0);
+    }, 3000);
+
+    return () => window.clearInterval(offlineFallbackIntervalId);
   }, [liveStatus, scheduleLobbyRefetch]);
 
   const activePlayerCount = useMemo(
