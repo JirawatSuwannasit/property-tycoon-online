@@ -74,6 +74,7 @@ Phase 2 adds the Supabase schema and seed data in:
 ```text
 supabase/migrations/20260611000100_create_mvp_schema.sql
 supabase/migrations/20260611000200_seed_mvp_board_and_cards.sql
+supabase/migrations/20260611000300_enable_lobby_realtime.sql
 ```
 
 To apply these migrations with the Supabase CLI after linking your project:
@@ -82,7 +83,7 @@ To apply these migrations with the Supabase CLI after linking your project:
 supabase db push
 ```
 
-Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration.
+Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, then the lobby realtime migration.
 
 After applying the migrations, verify these tables in the Supabase Table Editor:
 
@@ -102,7 +103,7 @@ Phase 2 does not add Row Level Security policies yet. Authorization and security
 
 Do not use Supabase service role keys in frontend code. The frontend should only use `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
-The `players.session_token_hash` column is nullable in Phase 2. Phase 3 will use it for player session validation when room APIs are implemented.
+The `players.session_token_hash` column is nullable in Phase 2 and is used by the room/lobby APIs for lightweight player session validation.
 
 
 ## Phase 3 lobby testing
@@ -121,6 +122,22 @@ Phase 3 uses a simple 5-second lobby polling/refetch strategy. Supabase Realtime
 
 Player sessions are intentionally lightweight for the MVP lobby: the raw session token is stored only in browser `localStorage`, while only `players.session_token_hash` is stored in the database.
 
+
+## Phase 4 realtime lobby testing
+
+Phase 4 subscribes the lobby page to Supabase Realtime changes for the current room's `rooms` and `players` rows. Realtime events are display/refetch triggers only: clients refetch lobby state from `/api/rooms/[roomCode]`, and all writes still go through validated API routes.
+
+To test realtime lobby sync with two browser windows:
+
+1. Create a room as the host.
+2. Join the room from another browser or an incognito window.
+3. Confirm the host lobby updates automatically when the second player appears.
+4. Toggle Ready as the second player.
+5. Confirm the host Start Game button enables automatically.
+6. Start the game as host.
+7. Confirm the second player sees the room status change to `playing` automatically.
+
+The lobby also keeps a manual Refresh button and a slow fallback refetch to recover from reconnects.
 
 ## Verification notes
 

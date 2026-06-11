@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PixelButton, PixelCard, PixelPanel } from "@/components/ui";
 import { parseJsonResponse } from "@/lib/client/http";
 import { loadPlayerSession, type StoredPlayerSession } from "@/lib/client/player-session";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PlayerStatus, RoomStatus } from "@/lib/database.types";
 
 type LobbyPlayer = {
@@ -46,6 +47,8 @@ type LobbyClientProps = {
   roomCode: string;
 };
 
+type LiveStatus = "connecting" | "live" | "reconnecting" | "offline";
+
 function statusLabel(status: RoomStatus) {
   if (status === "waiting") {
     return "Waiting for players";
@@ -77,13 +80,46 @@ function getSessionHeaders(session: StoredPlayerSession | null): HeadersInit {
   };
 }
 
+function liveStatusLabel(status: LiveStatus) {
+  if (status === "live") {
+    return "Live";
+  }
+
+  if (status === "reconnecting") {
+    return "Reconnecting";
+  }
+
+  if (status === "offline") {
+    return "Offline";
+  }
+
+  return "Connecting";
+}
+
+function liveStatusClassName(status: LiveStatus) {
+  if (status === "live") {
+    return "bg-[#b8f2d0]";
+  }
+
+  if (status === "offline") {
+    return "bg-[#ff9aa2]";
+  }
+
+  return "bg-[#ffd166]";
+}
+
 export function LobbyClient({ roomCode }: LobbyClientProps) {
   const normalizedRoomCode = roomCode.toUpperCase();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const refetchTimerRef = useRef<number | null>(null);
+  const lastRefetchAtRef = useRef(0);
   const [session, setSession] = useState<StoredPlayerSession | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>("connecting");
 
   const fetchLobby = useCallback(
     async (activeSession: StoredPlayerSession | null) => {
@@ -101,6 +137,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         throw new Error(data.error ?? "The server response was missing lobby details.");
       }
 
+      lastRefetchAtRef.current = Date.now();
       setLobbyState(data);
       setError(null);
     },
@@ -116,15 +153,97 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
       .finally(() => setIsLoading(false));
   }, [fetchLobby, normalizedRoomCode]);
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      fetchLobby(session).catch(() => {
-        // Phase 4 TODO: replace polling with Supabase Realtime lobby subscriptions.
-      });
-    }, 5000);
+  const scheduleLobbyRefetch = useCallback(
+    (delayMs = 250) => {
+      if (refetchTimerRef.current) {
+        window.clearTimeout(refetchTimerRef.current);
+      }
 
-    return () => window.clearInterval(intervalId);
-  }, [fetchLobby, session]);
+      refetchTimerRef.current = window.setTimeout(() => {
+        refetchTimerRef.current = null;
+        fetchLobby(session).catch((refetchError) => {
+          setLiveStatus("reconnecting");
+          setError(refetchError instanceof Error ? refetchError.message : "Unable to refresh lobby.");
+        });
+      }, delayMs);
+    },
+    [fetchLobby, session],
+  );
+
+  useEffect(() => {
+    if (!lobbyState?.room.id) {
+      return undefined;
+    }
+
+    setLiveStatus("connecting");
+
+    const channel = supabase
+      .channel(`lobby:${lobbyState.room.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "players", filter: `room_id=eq.${lobbyState.room.id}` },
+        () => scheduleLobbyRefetch(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${lobbyState.room.id}` },
+        () => scheduleLobbyRefetch(),
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setLiveStatus("live");
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setLiveStatus("reconnecting");
+          scheduleLobbyRefetch(0);
+          return;
+        }
+
+        if (status === "CLOSED") {
+          setLiveStatus("offline");
+        }
+      });
+
+    const fallbackIntervalId = window.setInterval(() => {
+      if (Date.now() - lastRefetchAtRef.current > 30000) {
+        scheduleLobbyRefetch(0);
+      }
+    }, 15000);
+
+    return () => {
+      window.clearInterval(fallbackIntervalId);
+
+      if (refetchTimerRef.current) {
+        window.clearTimeout(refetchTimerRef.current);
+        refetchTimerRef.current = null;
+      }
+
+      supabase.removeChannel(channel);
+      setLiveStatus("offline");
+    };
+  }, [lobbyState?.room.id, scheduleLobbyRefetch, supabase]);
+
+  useEffect(() => {
+    if (liveStatus !== "reconnecting") {
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+
+      return undefined;
+    }
+
+    reconnectTimerRef.current = window.setTimeout(() => scheduleLobbyRefetch(0), 3000);
+
+    return () => {
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+  }, [liveStatus, scheduleLobbyRefetch]);
 
   const activePlayerCount = useMemo(
     () => lobbyState?.players.filter((player) => player.status !== "left").length ?? 0,
@@ -238,6 +357,9 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
           <h1 className="text-5xl font-black tracking-[-0.06em] sm:text-7xl">{lobbyState.room.room_code}</h1>
           <div className="mt-6 grid gap-3 text-sm font-bold text-[#4d3b61]">
             <p className="pixel-border bg-[#fff7df] p-3">Status: {statusLabel(lobbyState.room.status)}</p>
+            <p className={`pixel-border p-3 ${liveStatusClassName(liveStatus)}`}>
+              Lobby sync: {liveStatusLabel(liveStatus)}
+            </p>
             <p className="pixel-border bg-[#fff7df] p-3">
               Players: {activePlayerCount}/{lobbyState.room.max_players}
             </p>
@@ -246,6 +368,12 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
             </p>
           </div>
           {error ? <p className="pixel-border mt-5 bg-[#ff9aa2] p-3 text-sm font-bold">{error}</p> : null}
+          {!currentPlayer ? (
+            <p className="pixel-border mt-5 bg-[#ffd166] p-3 text-sm font-bold">
+              This browser does not have a matching local player session. You can watch the lobby, or return home to
+              create/join with this browser.
+            </p>
+          ) : null}
           <div className="mt-6 flex flex-wrap gap-3">
             <PixelButton disabled={isLoading || isSubmitting} onClick={handleRefresh} variant="secondary">
               Refresh
@@ -255,7 +383,8 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
             </Link>
           </div>
           <p className="mt-5 text-xs font-bold text-[#5a4770]">
-            Phase 4 TODO: replace the 5-second lobby polling refresh with Supabase Realtime subscriptions.
+            Lobby updates come from Supabase Realtime and refetch server-validated room state. A slow polling fallback
+            helps recover after reconnects.
           </p>
         </PixelPanel>
 
