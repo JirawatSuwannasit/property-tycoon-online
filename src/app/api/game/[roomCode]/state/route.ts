@@ -9,7 +9,8 @@ export async function GET(request: Request, { params }: GameRouteContext) {
   try {
     const { roomCode } = await params;
     const playerId = request.headers.get("x-player-id");
-    const state = await getGameStateByRoomCode(roomCode, playerId);
+    const sessionToken = request.headers.get("x-session-token");
+    const state = await getGameStateByRoomCode(roomCode, playerId, sessionToken);
     return NextResponse.json({ ok: true, state, message: "Game state loaded." });
   } catch (error) {
     return handleGameApiError(error);

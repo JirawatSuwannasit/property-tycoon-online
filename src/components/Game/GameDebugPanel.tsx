@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PixelButton, PixelPanel } from "@/components/ui";
 import { parseJsonResponse } from "@/lib/client/http";
 import { loadPlayerSession, type StoredPlayerSession } from "@/lib/client/player-session";
@@ -41,12 +41,13 @@ type GameApiResponse = {
       money: number;
       position: number;
       status: string;
+      is_host: boolean;
       turn_order_card: number | null;
       play_order: number | null;
       is_current_turn: boolean;
       is_you: boolean;
     }>;
-    pendingTile: { name: string; tile_index: number; price: number | null; rent: number | null } | null;
+    pendingTile: { name: string; tile_index: number; type: string; price: number | null; rent: number | null } | null;
     pendingDecision: PendingDecision | null;
     winner: { display_name: string } | null;
     hints: {
@@ -90,6 +91,7 @@ function getVisualSecondsRemaining(deadline: string | null, now: number) {
 
 export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
   const normalizedRoomCode = roomCode.toUpperCase();
+  const sessionRef = useRef<StoredPlayerSession | null>(null);
   const [session, setSession] = useState<StoredPlayerSession | null>(null);
   const [state, setState] = useState<GameApiResponse["state"] | null>(null);
   const [message, setMessage] = useState("Load game state after the host starts the game.");
@@ -118,9 +120,14 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
 
   useEffect(() => {
     const storedSession = loadPlayerSession(normalizedRoomCode);
+    sessionRef.current = storedSession;
     setSession(storedSession);
     loadState(storedSession).catch((error) => setMessage(error instanceof Error ? error.message : "Unable to load game state."));
   }, [loadState, normalizedRoomCode]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     const tickId = window.setInterval(() => setNow(Date.now()), 1000);
@@ -134,12 +141,12 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
 
     const refreshId = window.setInterval(() => {
       if (!isSubmitting) {
-        loadState(session, true).catch((error) => setMessage(error instanceof Error ? error.message : "Unable to refresh game state."));
+        loadState(sessionRef.current, true).catch((error) => setMessage(error instanceof Error ? error.message : "Unable to refresh game state."));
       }
     }, 3000);
 
     return () => window.clearInterval(refreshId);
-  }, [isSubmitting, loadState, session, state?.room.status]);
+  }, [isSubmitting, loadState, state?.room.status]);
 
   async function postAction(
     action:
@@ -156,8 +163,8 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
     try {
       const body =
         action === "resolve-timeout"
-          ? { playerId: session?.playerId }
-          : { playerId: session?.playerId, sessionToken: session?.sessionToken };
+          ? { playerId: sessionRef.current?.playerId }
+          : { playerId: sessionRef.current?.playerId, sessionToken: sessionRef.current?.sessionToken };
       const response = await fetch(`/api/game/${normalizedRoomCode}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -171,7 +178,7 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
 
       setState(data.state);
       setMessage(data.message ?? "Game action completed.");
-      await loadState(session, true);
+      await loadState(sessionRef.current, true);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Game action failed.");
     } finally {
@@ -181,8 +188,20 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
 
   const hints = state?.hints;
   const currentPlayer = state?.players.find((player) => player.is_current_turn) ?? null;
-  const localPlayer = state?.players.find((player) => player.is_you) ?? null;
-  const isYourTurn = Boolean(localPlayer?.is_current_turn || (session?.playerId && state?.room.current_turn_player_id === session.playerId));
+  const localPlayer =
+    state?.players.find((player) => player.is_you) ??
+    state?.players.find((player) => session?.playerId && player.id === session.playerId) ??
+    null;
+  const hasServerAction = Boolean(
+    hints?.canRoll ||
+      hints?.canBuy ||
+      hints?.canUpgrade ||
+      hints?.canSellProperty ||
+      hints?.canSellUpgrade ||
+      hints?.canSkipDecision,
+  );
+  const isCurrentTurnBySession = Boolean(session?.playerId && state?.room.current_turn_player_id === session.playerId);
+  const isYourTurn = Boolean(localPlayer?.is_current_turn || isCurrentTurnBySession || hasServerAction);
   const pendingDecision = state?.pendingDecision ?? null;
   const visualSecondsRemaining = getVisualSecondsRemaining(state?.room.action_deadline_at ?? null, now);
 
@@ -203,10 +222,10 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
       <PixelPanel className="p-6" tone="mint">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Phase 6.6 gameplay actions</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Phase 6.7 gameplay actions</p>
             <h2 className="text-3xl font-black">{turnHeadline}</h2>
           </div>
-          <PixelButton disabled={isSubmitting} onClick={() => loadState(session)} variant="secondary">
+          <PixelButton disabled={isSubmitting} onClick={() => loadState(sessionRef.current)} variant="secondary">
             Refresh Game State
           </PixelButton>
         </div>
@@ -243,6 +262,30 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
                 <span className="uppercase">{player.is_current_turn ? "Current Turn" : player.is_you ? "You" : "Waiting"}</span>
               </div>
             ))}
+          </div>
+        ) : null}
+
+        {process.env.NODE_ENV === "development" ? (
+          <div className="pixel-border mt-5 grid gap-2 bg-[#cdb4db] p-4 text-xs font-bold text-[#2b1f3a] sm:grid-cols-2 lg:grid-cols-3">
+            <p>localPlayerId: {session?.playerId ?? "none"}</p>
+            <p>localSessionToken: {session?.sessionToken ? "exists" : "missing"}</p>
+            <p>currentTurnPlayerId: {state?.room.current_turn_player_id ?? "none"}</p>
+            <p>currentUserPlayerId: {localPlayer?.id ?? "none"}</p>
+            <p>isHost: {localPlayer?.is_host ? "true" : "false"}</p>
+            <p>isCurrentTurn: {isYourTurn ? "true" : "false"}</p>
+            <p>room.status: {state?.room.status ?? "none"}</p>
+            <p>turn_phase: {state?.room.turn_phase ?? "none"}</p>
+            <p>pending_action: {state?.room.pending_action ?? "none"}</p>
+            <p>pending_tile_id: {pendingDecision?.tileId ?? "none"}</p>
+            <p>pending tile type: {state?.pendingTile?.type ?? "none"}</p>
+            <p>pending tile owner id: {pendingDecision?.ownerPlayerId ?? "none"}</p>
+            <p>canRoll: {hints?.canRoll ? "true" : "false"}</p>
+            <p>canBuy: {hints?.canBuy ? "true" : "false"}</p>
+            <p>canUpgrade: {hints?.canUpgrade ? "true" : "false"}</p>
+            <p>canSellProperty: {hints?.canSellProperty ? "true" : "false"}</p>
+            <p>canSellUpgrade: {hints?.canSellUpgrade ? "true" : "false"}</p>
+            <p>canSkipDecision: {hints?.canSkipDecision ? "true" : "false"}</p>
+            <p>secondsRemaining: {hints?.secondsRemaining ?? 0}</p>
           </div>
         ) : null}
 

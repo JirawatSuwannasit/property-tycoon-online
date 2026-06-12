@@ -398,16 +398,34 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
   };
 }
 
-export async function getGameStateByRoomCode(roomCode: string, currentPlayerId?: string | null) {
+export async function getGameStateByRoomCode(roomCode: string, currentPlayerId?: string | null, sessionToken?: string | null) {
   const supabase = createSupabaseAdminClient();
   const room = await loadRoomByCode(supabase, roomCode);
+  let verifiedViewerId: string | null = null;
+
+  if (currentPlayerId && sessionToken) {
+    const tokenHash = hashSessionToken(sessionToken);
+    const { data: viewer, error: viewerError } = await supabase
+      .from("players")
+      .select("id")
+      .eq("room_id", room.id)
+      .eq("id", currentPlayerId)
+      .eq("session_token_hash", tokenHash)
+      .maybeSingle();
+
+    if (viewerError) {
+      throw new GameApiError(viewerError.message, "VIEWER_SESSION_CHECK_FAILED", 500);
+    }
+
+    verifiedViewerId = viewer?.id ?? null;
+  }
 
   if (room.status === "playing") {
     await resolveExpiredTurnAction(room.id);
   }
 
   const updatedRoom = await loadRoomById(supabase, room.id);
-  return serializeGameState(supabase, updatedRoom, currentPlayerId);
+  return serializeGameState(supabase, updatedRoom, verifiedViewerId);
 }
 
 export async function requireGamePlayerSession(roomCode: string, playerId: string, sessionToken: string) {
