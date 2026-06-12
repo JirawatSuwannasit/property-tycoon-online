@@ -116,6 +116,19 @@ function liveStatusClassName(status: LiveStatus) {
   return "bg-[#ffd166]";
 }
 
+function debugRealtime(message: string, details?: unknown) {
+  if (process.env.NODE_ENV !== "development") {
+    return;
+  }
+
+  if (details === undefined) {
+    console.debug(`[LobbyRealtime] ${message}`);
+    return;
+  }
+
+  console.debug(`[LobbyRealtime] ${message}`, details);
+}
+
 export function LobbyClient({ roomCode }: LobbyClientProps) {
   const normalizedRoomCode = roomCode.toUpperCase();
   const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
@@ -123,6 +136,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
   const reconnectTimerRef = useRef<number | null>(null);
   const refetchTimerRef = useRef<number | null>(null);
   const realtimeSubscriptionIdRef = useRef(0);
+  const realtimeSubscribedRef = useRef(false);
   const [session, setSession] = useState<StoredPlayerSession | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +189,13 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
       refetchTimerRef.current = window.setTimeout(() => {
         refetchTimerRef.current = null;
         fetchLobby(sessionRef.current).catch((refetchError) => {
-          setLiveStatus((currentStatus) => (currentStatus === "polling" ? "polling" : "reconnecting"));
+          setLiveStatus((currentStatus) => {
+            if (currentStatus === "live" || currentStatus === "polling") {
+              return currentStatus;
+            }
+
+            return "reconnecting";
+          });
           setError(refetchError instanceof Error ? refetchError.message : "Unable to refresh lobby.");
         });
       }, delayMs);
@@ -192,14 +212,21 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
     realtimeSubscriptionIdRef.current += 1;
     const subscriptionId = realtimeSubscriptionIdRef.current;
+    const channelName = `lobby:${roomId}`;
+    const playersFilter = `room_id=eq.${roomId}`;
+    const roomsFilter = `id=eq.${roomId}`;
+    realtimeSubscribedRef.current = false;
     setLiveStatus("connecting");
+    debugRealtime("creating channel", { channelName, roomId, playersFilter, roomsFilter });
 
     if (!supabaseRef.current) {
       try {
         supabaseRef.current = createSupabaseBrowserClient();
       } catch (realtimeError) {
         if (realtimeSubscriptionIdRef.current === subscriptionId) {
+          realtimeSubscribedRef.current = false;
           setLiveStatus("polling");
+          debugRealtime("browser client unavailable; using polling", realtimeError);
           setError(
             realtimeError instanceof Error
               ? `Realtime is unavailable, so lobby sync is using polling: ${realtimeError.message}`
@@ -213,29 +240,40 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
     const supabase = supabaseRef.current;
     const channel = supabase
-      .channel(`lobby:${roomId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "players", filter: `room_id=eq.${roomId}` },
-        () => scheduleLobbyRefetch(),
+        { event: "*", schema: "public", table: "players", filter: playersFilter },
+        (payload) => {
+          debugRealtime("players event received", { channelName, roomId, payload });
+          scheduleLobbyRefetch();
+        },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
-        () => scheduleLobbyRefetch(),
+        { event: "*", schema: "public", table: "rooms", filter: roomsFilter },
+        (payload) => {
+          debugRealtime("rooms event received", { channelName, roomId, payload });
+          scheduleLobbyRefetch();
+        },
       )
       .subscribe((status, error) => {
+        debugRealtime("subscription status", { channelName, roomId, status, error });
+
         if (realtimeSubscriptionIdRef.current !== subscriptionId) {
+          debugRealtime("ignored stale subscription status", { channelName, roomId, status, subscriptionId });
           return;
         }
 
         if (status === "SUBSCRIBED") {
+          realtimeSubscribedRef.current = true;
           setLiveStatus("live");
           setError(null);
           return;
         }
 
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          realtimeSubscribedRef.current = false;
           setLiveStatus("reconnecting");
           setError(error?.message ?? "Realtime disconnected. Trying to reconnect...");
           scheduleLobbyRefetch(0);
@@ -243,13 +281,17 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
         }
 
         if (status === "CLOSED") {
+          realtimeSubscribedRef.current = false;
           setLiveStatus("polling");
           scheduleLobbyRefetch(0);
         }
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      realtimeSubscriptionIdRef.current += 1;
+      realtimeSubscribedRef.current = false;
+      debugRealtime("removing channel", { channelName, roomId });
+      void supabase.removeChannel(channel);
     };
   }, [lobbyState?.room.id, scheduleLobbyRefetch]);
 
@@ -265,7 +307,10 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
 
     reconnectTimerRef.current = window.setTimeout(() => {
       scheduleLobbyRefetch(0);
-      setLiveStatus("polling");
+
+      if (!realtimeSubscribedRef.current) {
+        setLiveStatus("polling");
+      }
     }, 3000);
 
     return () => {
