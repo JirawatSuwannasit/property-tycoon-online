@@ -140,6 +140,16 @@ To test realtime lobby sync with two browser windows:
 
 The lobby status indicator shows `Live` when Supabase Realtime returns `SUBSCRIBED`. If realtime is unavailable but the fallback refresh loop is active, it shows `Polling` instead of `Offline`. In local development, open the browser console and look for `[LobbyRealtime]` logs to inspect the channel name, room id filters, subscription status, and received realtime events. The lobby also keeps a manual Refresh button as an extra fallback.
 
+## Phase 5 timed-turn plan
+
+The updated Phase 5 implementation plan is available at:
+
+```text
+docs/phase-5-timed-turns-thai-landmarks-plan.html
+```
+
+Phase 5 will add server-authoritative 30-second roll and buy/upgrade deadlines, automatic server roll/skip handling, Thai landmark/travel-themed property names, and visitor-facility upgrade rules. The browser countdown will be visual only; the true deadline must be stored in Supabase.
+
 ## Verification notes
 
 The project includes the required runtime and type packages in `package.json`: Next.js, React, React DOM, Supabase SSR/client libraries, TypeScript, Node types, and React types.
