@@ -46,15 +46,40 @@ export async function POST(request: Request, { params }: StartRouteContext) {
       );
     }
 
+    const firstTurnPlayer = lobbyState.players.find((candidate) => candidate.status === "active") ?? lobbyState.players[0];
+
+    if (!firstTurnPlayer) {
+      return NextResponse.json({ error: "No players are available to start the game." }, { status: 409 });
+    }
+
     const supabase = createSupabaseAdminClient();
     const { error } = await supabase
       .from("rooms")
-      .update({ status: "playing" })
+      .update({
+        status: "playing",
+        current_turn_player_id: firstTurnPlayer.id,
+        turn_phase: "waiting_to_roll",
+        action_deadline_at: new Date(Date.now() + 30_000).toISOString(),
+        pending_action: null,
+        pending_tile_id: null,
+      })
       .eq("id", lobbyState.room.id)
       .eq("status", "waiting");
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const { error: eventError } = await supabase.from("game_events").insert({
+      room_id: lobbyState.room.id,
+      player_id: firstTurnPlayer.id,
+      event_type: "game_started",
+      message: `Game started. ${firstTurnPlayer.display_name}'s turn begins.`,
+      payload: { firstTurnPlayerId: firstTurnPlayer.id },
+    });
+
+    if (eventError) {
+      return NextResponse.json({ error: eventError.message }, { status: 500 });
     }
 
     const updatedLobbyState = await getLobbyState(roomCode, {

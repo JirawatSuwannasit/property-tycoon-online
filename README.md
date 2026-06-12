@@ -76,6 +76,7 @@ supabase/migrations/20260611000100_create_mvp_schema.sql
 supabase/migrations/20260611000200_seed_mvp_board_and_cards.sql
 supabase/migrations/20260611000300_enable_lobby_realtime.sql
 supabase/migrations/20260611000400_fix_lobby_realtime_access.sql
+supabase/migrations/20260612000100_add_timed_turns_and_upgrades.sql
 ```
 
 To apply these migrations with the Supabase CLI after linking your project:
@@ -84,7 +85,7 @@ To apply these migrations with the Supabase CLI after linking your project:
 supabase db push
 ```
 
-Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, then both lobby realtime migrations.
+Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, both lobby realtime migrations, and finally the timed-turn/upgrades migration.
 
 After applying the migrations, verify these tables in the Supabase Table Editor:
 
@@ -149,6 +150,21 @@ docs/phase-5-timed-turns-thai-landmarks-plan.html
 ```
 
 Phase 5 will add server-authoritative 30-second roll and buy/upgrade deadlines, automatic server roll/skip handling, Thai landmark/travel-themed property names, and visitor-facility upgrade rules. The browser countdown will be visual only; the true deadline must be stored in Supabase.
+
+## Phase 6 gameplay API routes
+
+Phase 6 connects the server-authoritative game engine to API routes:
+
+- `GET /api/game/[roomCode]/state` resolves expired deadlines, then returns room, players, board tiles, owned properties, recent events, winner data, and client-only action hints.
+- `POST /api/game/[roomCode]/roll-dice` validates the player session/current turn and rolls dice on the server.
+- `POST /api/game/[roomCode]/buy-property` buys pending landmark rights when the server says a buy decision is active.
+- `POST /api/game/[roomCode]/upgrade-property` upgrades visitor facilities when the server says an upgrade decision is active.
+- `POST /api/game/[roomCode]/skip-decision` skips the current buy/upgrade decision and advances the turn.
+- `POST /api/game/[roomCode]/resolve-timeout` lets the client ask the server to resolve an expired deadline; the server decides whether anything expired.
+
+Gameplay action routes require `playerId` and `sessionToken`. The raw token stays in browser `localStorage`; the database stores only `players.session_token_hash`.
+
+Timed turns use the persisted `rooms.action_deadline_at` value. The browser countdown is visual only. When a state read/action/timeout check reaches the server, `resolveExpiredTurnAction(roomId)` auto-rolls expired roll phases or auto-skips expired buy/upgrade decisions.
 
 ## Verification notes
 

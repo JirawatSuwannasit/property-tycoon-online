@@ -1,6 +1,8 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type RoomStatus = "waiting" | "playing" | "finished";
+export type TurnPhase = "waiting_to_roll" | "resolving_roll" | "waiting_to_buy_or_upgrade" | "turn_ending" | "finished";
+export type PendingAction = "buy_property" | "upgrade_property";
 export type PlayerStatus = "active" | "bankrupt" | "left";
 export type TileType = "start" | "property" | "tax" | "chance" | "jail" | "go_to_jail" | "bonus";
 export type ChanceCardType =
@@ -23,6 +25,10 @@ export type Database = {
           current_turn_player_id: string | null;
           winner_player_id: string | null;
           turn_number: number;
+          turn_phase: TurnPhase;
+          action_deadline_at: string | null;
+          pending_tile_id: string | null;
+          pending_action: PendingAction | null;
           created_at: string;
           updated_at: string;
         };
@@ -35,6 +41,10 @@ export type Database = {
           current_turn_player_id?: string | null;
           winner_player_id?: string | null;
           turn_number?: number;
+          turn_phase?: TurnPhase;
+          action_deadline_at?: string | null;
+          pending_tile_id?: string | null;
+          pending_action?: PendingAction | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -47,6 +57,10 @@ export type Database = {
           current_turn_player_id?: string | null;
           winner_player_id?: string | null;
           turn_number?: number;
+          turn_phase?: TurnPhase;
+          action_deadline_at?: string | null;
+          pending_tile_id?: string | null;
+          pending_action?: PendingAction | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -149,6 +163,7 @@ export type Database = {
           tile_id: string;
           owner_player_id: string;
           purchased_at: string;
+          upgrade_level: number;
         };
         Insert: {
           id?: string;
@@ -156,6 +171,7 @@ export type Database = {
           tile_id: string;
           owner_player_id: string;
           purchased_at?: string;
+          upgrade_level?: number;
         };
         Update: {
           id?: string;
@@ -163,6 +179,7 @@ export type Database = {
           tile_id?: string;
           owner_player_id?: string;
           purchased_at?: string;
+          upgrade_level?: number;
         };
         Relationships: [];
       };

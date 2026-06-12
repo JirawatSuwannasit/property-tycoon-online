@@ -3,9 +3,11 @@ import type {
   PlayerStatus,
   RoomStatus,
   TileType,
+  TurnPhase,
+  PendingAction,
 } from "@/lib/database.types";
 
-export type { ChanceCardType, PlayerStatus, RoomStatus, TileType };
+export type { ChanceCardType, PlayerStatus, RoomStatus, TileType, TurnPhase, PendingAction };
 
 export type BoardTile = {
   id: string;
@@ -39,6 +41,10 @@ export type Room = {
   currentTurnPlayerId: string | null;
   winnerPlayerId: string | null;
   turnNumber: number;
+  turnPhase: TurnPhase;
+  actionDeadlineAt: string | null;
+  pendingTileId: string | null;
+  pendingAction: PendingAction | null;
 };
 
 export type Player = {
@@ -61,6 +67,7 @@ export type OwnedProperty = {
   tileId: string;
   ownerPlayerId: string;
   purchasedAt: string;
+  upgradeLevel: number;
 };
 
 export type GameEvent = {

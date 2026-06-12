@@ -1,3 +1,4 @@
+import { GameDebugPanel } from "@/components/Game/GameDebugPanel";
 import { LobbyClient } from "@/components/Lobby/LobbyClient";
 
 type RoomPageProps = {
@@ -9,5 +10,10 @@ type RoomPageProps = {
 export default async function RoomPage({ params }: RoomPageProps) {
   const { roomCode } = await params;
 
-  return <LobbyClient roomCode={roomCode} />;
+  return (
+    <>
+      <LobbyClient roomCode={roomCode} />
+      <GameDebugPanel roomCode={roomCode} />
+    </>
+  );
 }
