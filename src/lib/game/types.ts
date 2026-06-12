@@ -59,6 +59,10 @@ export type Player = {
   position: number;
   status: PlayerStatus;
   jailTurns: number;
+  turnOrderCard: number | null;
+  playOrder: number | null;
+  isCurrentTurn?: boolean;
+  isYou?: boolean;
 };
 
 export type OwnedProperty = {

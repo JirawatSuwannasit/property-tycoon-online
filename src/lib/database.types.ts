@@ -79,6 +79,8 @@ export type Database = {
           position: number;
           status: PlayerStatus;
           jail_turns: number;
+          turn_order_card: number | null;
+          play_order: number | null;
           session_token_hash: string | null;
           created_at: string;
           updated_at: string;
@@ -95,6 +97,8 @@ export type Database = {
           position?: number;
           status?: PlayerStatus;
           jail_turns?: number;
+          turn_order_card?: number | null;
+          play_order?: number | null;
           session_token_hash?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -111,6 +115,8 @@ export type Database = {
           position?: number;
           status?: PlayerStatus;
           jail_turns?: number;
+          turn_order_card?: number | null;
+          play_order?: number | null;
           session_token_hash?: string | null;
           created_at?: string;
           updated_at?: string;

@@ -77,6 +77,7 @@ supabase/migrations/20260611000200_seed_mvp_board_and_cards.sql
 supabase/migrations/20260611000300_enable_lobby_realtime.sql
 supabase/migrations/20260611000400_fix_lobby_realtime_access.sql
 supabase/migrations/20260612000100_add_timed_turns_and_upgrades.sql
+supabase/migrations/20260612000200_add_turn_order_cards.sql
 ```
 
 To apply these migrations with the Supabase CLI after linking your project:
@@ -85,7 +86,7 @@ To apply these migrations with the Supabase CLI after linking your project:
 supabase db push
 ```
 
-Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, both lobby realtime migrations, and finally the timed-turn/upgrades migration.
+Alternatively, you can open each SQL file and run it in order in the Supabase SQL Editor. Run the schema migration first, then the seed migration, both lobby realtime migrations, the timed-turn/upgrades migration, and finally the turn-order cards migration.
 
 After applying the migrations, verify these tables in the Supabase Table Editor:
 
@@ -165,6 +166,18 @@ Phase 6 connects the server-authoritative game engine to API routes:
 Gameplay action routes require `playerId` and `sessionToken`. The raw token stays in browser `localStorage`; the database stores only `players.session_token_hash`.
 
 Timed turns use the persisted `rooms.action_deadline_at` value. The browser countdown is visual only. When a state read/action/timeout check reaches the server, `resolveExpiredTurnAction(roomId)` auto-rolls expired roll phases or auto-skips expired buy/upgrade decisions.
+
+## Phase 6.5 turn-order card draw
+
+Phase 6.5 adds a server-authoritative turn-order draw when the host starts the game:
+
+- Active players receive unique random cards from 1-4.
+- The lowest card receives `play_order = 1` and becomes `rooms.current_turn_player_id`.
+- Other players are ordered by ascending card number.
+- The result is stored in `players.turn_order_card` and `players.play_order`, so refreshing the page never reshuffles a started game.
+- The room page displays a Turn Order panel after the game starts, highlights the current player, and shows `Your turn` or `Waiting for <player name>`.
+
+The client never shuffles or decides turn order. The host start API validates the lobby, draws cards server-side, stores the result, starts the first 30-second roll deadline, and writes game events for the draw and first player.
 
 ## Verification notes
 

@@ -14,10 +14,21 @@ type GameApiResponse = {
       action_deadline_at: string | null;
       pending_action: string | null;
       current_turn_player_id: string | null;
+      current_turn_player_name: string | null;
       winner_player_id: string | null;
       turn_number: number;
     };
-    players: Array<{ id: string; display_name: string; money: number; position: number; status: string }>;
+    players: Array<{
+      id: string;
+      display_name: string;
+      money: number;
+      position: number;
+      status: string;
+      turn_order_card: number | null;
+      play_order: number | null;
+      is_current_turn: boolean;
+      is_you: boolean;
+    }>;
     pendingTile: { name: string; tile_index: number } | null;
     winner: { display_name: string } | null;
     hints: {
@@ -123,10 +134,31 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
           <div className="grid gap-3 text-sm font-bold text-[#4d3b61] lg:grid-cols-2">
             <p className="pixel-border bg-[#fff7df] p-3">Room status: {state.room.status}</p>
             <p className="pixel-border bg-[#fff7df] p-3">Turn phase: {state.room.turn_phase}</p>
+            <p className="pixel-border bg-[#fff7df] p-3">
+              Current turn: {state.room.current_turn_player_name ?? "Waiting..."}
+            </p>
             <p className="pixel-border bg-[#fff7df] p-3">Deadline: {state.hints.secondsRemaining}s</p>
             <p className="pixel-border bg-[#fff7df] p-3">Pending: {state.room.pending_action ?? "None"}</p>
             <p className="pixel-border bg-[#fff7df] p-3">Pending tile: {state.pendingTile?.name ?? "None"}</p>
             <p className="pixel-border bg-[#fff7df] p-3">Winner: {state.winner?.display_name ?? "None"}</p>
+          </div>
+        ) : null}
+        {state?.players.length ? (
+          <div className="mt-5 grid gap-2">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Server Turn Order</p>
+            {state.players.map((player) => (
+              <div
+                key={player.id}
+                className={`pixel-border flex flex-wrap items-center justify-between gap-2 p-3 text-sm font-black ${
+                  player.is_current_turn ? "bg-[#ffd166]" : player.is_you ? "bg-[#b8f2d0]" : "bg-[#fff7df]"
+                }`}
+              >
+                <span>
+                  #{player.play_order ?? "?"} {player.display_name} — Card {player.turn_order_card ?? "?"}
+                </span>
+                <span className="uppercase">{player.is_current_turn ? "Current Turn" : player.is_you ? "You" : "Waiting"}</span>
+              </div>
+            ))}
           </div>
         ) : null}
         <div className="mt-5 flex flex-wrap gap-3">

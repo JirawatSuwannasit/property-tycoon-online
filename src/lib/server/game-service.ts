@@ -11,7 +11,10 @@ type PlayerRow = Database["public"]["Tables"]["players"]["Row"];
 type TileRow = Database["public"]["Tables"]["game_tiles"]["Row"];
 type PropertyRow = Database["public"]["Tables"]["properties"]["Row"];
 type GameEventRow = Database["public"]["Tables"]["game_events"]["Row"];
-type GamePlayerState = Omit<PlayerRow, "session_token_hash">;
+type GamePlayerState = Omit<PlayerRow, "session_token_hash"> & {
+  is_current_turn: boolean;
+  is_you: boolean;
+};
 
 type GameStateHints = {
   canRoll: boolean;
@@ -34,7 +37,7 @@ export type GameState = {
     | "current_turn_player_id"
     | "winner_player_id"
     | "turn_number"
-  >;
+  > & { current_turn_player_name: string | null };
   players: GamePlayerState[];
   tiles: TileRow[];
   properties: PropertyRow[];
@@ -107,7 +110,9 @@ function rentFor(tile: TileRow, property: PropertyRow) {
 }
 
 function activePlayers(players: PlayerRow[]) {
-  return players.filter((player) => player.status === "active").sort((a, b) => a.seat_no - b.seat_no);
+  return players
+    .filter((player) => player.status === "active")
+    .sort((a, b) => (a.play_order ?? 99) - (b.play_order ?? 99) || a.seat_no - b.seat_no);
 }
 
 function nextActivePlayerId(players: PlayerRow[], currentPlayerId: string) {
@@ -246,10 +251,17 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
     throw new GameApiError(eventsResult.error?.message ?? "Unable to load game events.", "EVENTS_LOAD_FAILED", 500);
   }
 
-  const publicPlayers = players.map(({ session_token_hash: _sessionTokenHash, ...player }) => player) as GamePlayerState[];
+  const viewerId = currentPlayerId ?? null;
+  const publicPlayers = players
+    .map(({ session_token_hash: _sessionTokenHash, ...player }) => ({
+      ...player,
+      is_current_turn: player.id === room.current_turn_player_id,
+      is_you: player.id === viewerId,
+    }))
+    .sort((a, b) => (a.play_order ?? 99) - (b.play_order ?? 99) || a.seat_no - b.seat_no) as GamePlayerState[];
   const pendingTile = room.pending_tile_id ? tiles.find((tile) => tile.id === room.pending_tile_id) ?? null : null;
   const winner = room.winner_player_id ? publicPlayers.find((player) => player.id === room.winner_player_id) ?? null : null;
-  const viewerId = currentPlayerId ?? null;
+  const currentTurnPlayer = publicPlayers.find((player) => player.id === room.current_turn_player_id) ?? null;
   const viewerIsCurrent = Boolean(viewerId && viewerId === room.current_turn_player_id);
   const pendingProperty = room.pending_tile_id
     ? properties.find((property) => property.room_id === room.id && property.tile_id === room.pending_tile_id) ?? null
@@ -266,6 +278,7 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
       pending_action: room.pending_action,
       pending_tile_id: room.pending_tile_id,
       current_turn_player_id: room.current_turn_player_id,
+      current_turn_player_name: currentTurnPlayer?.display_name ?? null,
       winner_player_id: room.winner_player_id,
       turn_number: room.turn_number,
     },

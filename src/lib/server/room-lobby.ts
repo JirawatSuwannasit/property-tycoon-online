@@ -7,7 +7,18 @@ type PlayerRow = Database["public"]["Tables"]["players"]["Row"];
 
 type PublicPlayer = Pick<
   PlayerRow,
-  "id" | "display_name" | "avatar_key" | "seat_no" | "is_host" | "is_ready" | "status" | "created_at"
+  | "id"
+  | "display_name"
+  | "avatar_key"
+  | "seat_no"
+  | "is_host"
+  | "is_ready"
+  | "money"
+  | "position"
+  | "status"
+  | "turn_order_card"
+  | "play_order"
+  | "created_at"
 >;
 
 export type LobbyState = {
@@ -21,6 +32,8 @@ export type LobbyState = {
     | "current_turn_player_id"
     | "winner_player_id"
     | "turn_number"
+    | "turn_phase"
+    | "action_deadline_at"
     | "created_at"
     | "updated_at"
   >;
@@ -87,7 +100,7 @@ export async function getLobbyState(
   const { data: room, error: roomError } = await supabase
     .from("rooms")
     .select(
-      "id, room_code, status, max_players, host_player_id, current_turn_player_id, winner_player_id, turn_number, created_at, updated_at",
+      "id, room_code, status, max_players, host_player_id, current_turn_player_id, winner_player_id, turn_number, turn_phase, action_deadline_at, created_at, updated_at",
     )
     .eq("room_code", normalizedRoomCode)
     .single();
@@ -107,7 +120,7 @@ export async function getLobbyState(
 
   const { data: players, error: playersError } = await supabase
     .from("players")
-    .select("id, display_name, avatar_key, seat_no, is_host, is_ready, status, created_at")
+    .select("id, display_name, avatar_key, seat_no, is_host, is_ready, money, position, status, turn_order_card, play_order, created_at")
     .eq("room_id", room.id)
     .order("seat_no", { ascending: true });
 
@@ -121,7 +134,7 @@ export async function getLobbyState(
     const tokenHash = hashSessionToken(session.sessionToken);
     const { data: verifiedPlayer, error: verifiedPlayerError } = await supabase
       .from("players")
-      .select("id, display_name, avatar_key, seat_no, is_host, is_ready, status, created_at")
+      .select("id, display_name, avatar_key, seat_no, is_host, is_ready, money, position, status, turn_order_card, play_order, created_at")
       .eq("room_id", room.id)
       .eq("id", session.playerId)
       .eq("session_token_hash", tokenHash)
@@ -136,7 +149,13 @@ export async function getLobbyState(
   }
 
   const publicRoom = room as LobbyState["room"];
-  const publicPlayers = players as PublicPlayer[];
+  const publicPlayers = (players as PublicPlayer[]).sort((a, b) => {
+    if (publicRoom.status === "playing") {
+      return (a.play_order ?? 99) - (b.play_order ?? 99) || a.seat_no - b.seat_no;
+    }
+
+    return a.seat_no - b.seat_no;
+  });
   const startRequirements = getStartRequirements(publicRoom, publicPlayers);
 
   return {

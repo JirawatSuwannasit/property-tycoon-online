@@ -15,7 +15,11 @@ type LobbyPlayer = {
   seat_no: number;
   is_host: boolean;
   is_ready: boolean;
+  money: number;
+  position: number;
   status: PlayerStatus;
+  turn_order_card: number | null;
+  play_order: number | null;
   created_at: string;
 };
 
@@ -29,6 +33,8 @@ type LobbyState = {
     current_turn_player_id: string | null;
     winner_player_id: string | null;
     turn_number: number;
+    turn_phase: string;
+    action_deadline_at: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -67,6 +73,14 @@ function getPlayerBadge(player: LobbyPlayer) {
   }
 
   return player.is_ready ? "Ready" : "Not Ready";
+}
+
+function getTurnOrderLine(player: LobbyPlayer) {
+  if (player.play_order && player.turn_order_card) {
+    return `#${player.play_order} ${player.display_name} — Card ${player.turn_order_card}`;
+  }
+
+  return `Seat ${player.seat_no} ${player.display_name}`;
 }
 
 function getSessionHeaders(session: StoredPlayerSession | null): HeadersInit {
@@ -337,6 +351,24 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
     () => lobbyState?.players.filter((player) => player.status !== "left").length ?? 0,
     [lobbyState?.players],
   );
+  const isPlaying = lobbyState?.room.status === "playing";
+  const sortedPlayers = useMemo(() => {
+    const players = [...(lobbyState?.players ?? [])];
+
+    if (isPlaying) {
+      return players.sort((a, b) => (a.play_order ?? 99) - (b.play_order ?? 99) || a.seat_no - b.seat_no);
+    }
+
+    return players.sort((a, b) => a.seat_no - b.seat_no);
+  }, [isPlaying, lobbyState?.players]);
+  const currentTurnPlayer =
+    lobbyState?.players.find((player) => player.id === lobbyState.room.current_turn_player_id) ?? null;
+  const currentPlayerIsTurn = Boolean(lobbyState?.currentPlayer && currentTurnPlayer?.id === lobbyState.currentPlayer.id);
+  const turnMessage = !isPlaying
+    ? "Turn order appears after the host starts the game."
+    : currentPlayerIsTurn
+      ? "Your turn"
+      : `Waiting for ${currentTurnPlayer?.display_name ?? "the current player"}`;
 
   async function postLobbyAction(path: string, body: Record<string, unknown>) {
     if (!session) {
@@ -481,28 +513,44 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Players</p>
-                <h2 className="text-3xl font-black">Lobby Seats</h2>
+                <h2 className="text-3xl font-black">{isPlaying ? "Turn Order" : "Lobby Seats"}</h2>
               </div>
               <span className="pixel-border bg-[#ffd166] px-4 py-2 text-sm font-black uppercase">
                 Max {lobbyState.room.max_players}
               </span>
             </div>
             <div className="grid gap-3">
-              {lobbyState.players.map((player) => (
+              {sortedPlayers.map((player) => (
                 <PixelCard
                   key={player.id}
-                  className={player.id === currentPlayer?.id ? "bg-[#b8f2d0]" : "bg-[#fff2cc]"}
+                  className={
+                    player.id === lobbyState.room.current_turn_player_id
+                      ? "bg-[#ffd166]"
+                      : player.id === currentPlayer?.id
+                        ? "bg-[#b8f2d0]"
+                        : "bg-[#fff2cc]"
+                  }
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6c557d]">
-                        Seat {player.seat_no} · {player.avatar_key.replaceAll("_", " ")}
+                        {isPlaying ? getTurnOrderLine(player) : `Seat ${player.seat_no} · ${player.avatar_key.replaceAll("_", " ")}`}
                       </p>
                       <h3 className="text-2xl font-black">{player.display_name}</h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {player.id === currentPlayer?.id ? (
                         <span className="pixel-border bg-[#a0d8ff] px-3 py-2 text-xs font-black uppercase">You</span>
+                      ) : null}
+                      {player.id === lobbyState.room.current_turn_player_id ? (
+                        <span className="pixel-border bg-[#ff9aa2] px-3 py-2 text-xs font-black uppercase">
+                          Current Turn
+                        </span>
+                      ) : null}
+                      {isPlaying && player.play_order ? (
+                        <span className="pixel-border bg-[#cdb4db] px-3 py-2 text-xs font-black uppercase">
+                          Order #{player.play_order}
+                        </span>
                       ) : null}
                       <span className="pixel-border bg-white px-3 py-2 text-xs font-black uppercase">
                         {getPlayerBadge(player)}
@@ -513,6 +561,43 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
               ))}
             </div>
           </PixelPanel>
+
+          {isPlaying ? (
+            <PixelPanel className="p-6" tone="sky">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Turn Order Draw</p>
+              <h2 className="mb-4 text-3xl font-black">{turnMessage}</h2>
+              <div className="grid gap-2 text-sm font-bold text-[#4d3b61]">
+                <p className="pixel-border bg-[#fff7df] p-3">
+                  Current turn: {currentTurnPlayer?.display_name ?? "Waiting..."}
+                </p>
+                <p className="pixel-border bg-[#fff7df] p-3">Phase: {lobbyState.room.turn_phase}</p>
+                {lobbyState.room.action_deadline_at ? (
+                  <p className="pixel-border bg-[#fff7df] p-3">
+                    Deadline: {new Date(lobbyState.room.action_deadline_at).toLocaleTimeString()}
+                  </p>
+                ) : null}
+              </div>
+              <div className="mt-4 grid gap-2">
+                {sortedPlayers.map((player) => (
+                  <div
+                    key={`turn-${player.id}`}
+                    className={`pixel-border flex flex-wrap items-center justify-between gap-2 p-3 font-black ${
+                      player.id === lobbyState.room.current_turn_player_id ? "bg-[#ffd166]" : "bg-[#fff7df]"
+                    }`}
+                  >
+                    <span>{getTurnOrderLine(player)}</span>
+                    <span className="text-xs uppercase">
+                      {player.id === lobbyState.room.current_turn_player_id
+                        ? player.id === currentPlayer?.id
+                          ? "Your turn"
+                          : "Playing now"
+                        : "Waiting"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </PixelPanel>
+          ) : null}
 
           <PixelPanel className="p-6" tone="mint">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Actions</p>
