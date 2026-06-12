@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Property Tycoon Online — Phase 5 Timed Turns & Thai Landmark Plan</title>
+    <style>
+      :root {
+        --ink: #2b1f3a;
+        --paper: #fff7df;
+        --cream: #fff2cc;
+        --mint: #b8f2d0;
+        --sky: #a0d8ff;
+        --coral: #ff9aa2;
+        --lavender: #cdb4db;
+        --gold: #ffd166;
+        --leaf: #7bd88f;
+        --white: #fffaf0;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgba(43, 31, 58, 0.055) 1px, transparent 1px),
+          linear-gradient(rgba(43, 31, 58, 0.055) 1px, transparent 1px),
+          radial-gradient(circle at 15% 0%, rgba(255, 209, 102, 0.45), transparent 28rem),
+          radial-gradient(circle at 95% 10%, rgba(160, 216, 255, 0.4), transparent 26rem),
+          var(--paper);
+        background-size: 18px 18px, 18px 18px, auto, auto, auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        line-height: 1.6;
+      }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre {
+        overflow-x: auto;
+        padding: 1rem;
+        color: var(--paper);
+        background: #1f1730;
+        border: 3px solid var(--ink);
+        box-shadow: 5px 5px 0 var(--ink);
+      }
+      table { width: 100%; border-collapse: collapse; background: var(--white); }
+      th, td { padding: 0.75rem; text-align: left; vertical-align: top; border: 2px solid var(--ink); }
+      th { background: var(--lavender); }
+      a { color: #4438ca; font-weight: 800; }
+      header {
+        padding: 3rem 1.25rem 2rem;
+        text-align: center;
+        border-bottom: 4px solid var(--ink);
+        background: rgba(255, 250, 240, 0.8);
+      }
+      header h1 { margin: 0 auto; max-width: 1100px; font-size: clamp(2rem, 6vw, 4.75rem); line-height: 1; letter-spacing: -0.08em; }
+      header p { max-width: 900px; margin: 1rem auto 0; font-size: 1.05rem; font-weight: 700; }
+      main { max-width: 1180px; margin: 0 auto; padding: 1.25rem; }
+      .card {
+        margin: 1.25rem 0;
+        padding: 1.25rem;
+        background: rgba(255, 250, 240, 0.92);
+        border: 3px solid var(--ink);
+        box-shadow: 6px 6px 0 var(--ink);
+      }
+      .card h2 { margin-top: 0; font-size: clamp(1.45rem, 4vw, 2.25rem); }
+      .badge-row { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 1.5rem; }
+      .badge { display: inline-block; padding: 0.45rem 0.75rem; font-weight: 900; border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); background: var(--mint); }
+      .badge:nth-child(2n) { background: var(--sky); }
+      .badge:nth-child(3n) { background: var(--gold); }
+      .callout { padding: 1rem; margin: 1rem 0; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); background: var(--mint); }
+      .warning { background: var(--coral); }
+      .soft { background: var(--cream); }
+      .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+      .mini-card { padding: 1rem; border: 2px solid var(--ink); background: var(--white); box-shadow: 4px 4px 0 var(--ink); }
+      .phase { margin: 0.75rem 0; padding: 0.85rem; background: var(--cream); border: 2px solid var(--ink); }
+      .phase strong { display: block; margin-bottom: 0.25rem; }
+      footer { padding: 2rem 1rem 3rem; text-align: center; font-weight: 800; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Phase 5 Plan: Timed Turns & Thai Landmark Properties</h1>
+      <p>
+        Updated implementation plan for Property Tycoon Online before coding the game engine. This phase keeps the
+        server authoritative, adds 30-second turn decisions, and prepares the MVP board for original Thailand
+        landmark/travel-inspired property rights.
+      </p>
+      <div class="badge-row">
+        <span class="badge">30-second roll deadline</span>
+        <span class="badge">Server auto-roll</span>
+        <span class="badge">30-second buy/upgrade decision</span>
+        <span class="badge">Thai landmark theme</span>
+        <span class="badge">No Monopoly assets</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>1. Phase 5 objective</h2>
+        <p>
+          Implement the server-side game engine foundation for dice rolls, movement, property ownership, rent,
+          upgrades, event logging, and turn advancement while adding deadline-driven automatic actions. The browser may
+          display countdowns, but it must never decide the true timeout, dice result, money changes, rent, upgrades,
+          bankruptcy, or winner state.
+        </p>
+        <div class="callout warning">
+          <strong>Important:</strong> Phase 5 should not build the full board UI, animations, trading, auctions,
+          mortgage, houses, hotels, chat, bots, login, or advanced rules.
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2. Product decisions to apply</h2>
+        <ul>
+          <li>Each player has 30 seconds to roll dice after their turn starts.</li>
+          <li>If the roll deadline expires, the server automatically rolls for that player.</li>
+          <li>After landing on a buyable or upgradeable property, the player has 30 seconds to decide.</li>
+          <li>If the buy/upgrade deadline expires, the server automatically skips the decision and advances the turn.</li>
+          <li>Property tiles should use famous landmarks or travel destinations in Thailand.</li>
+          <li>Avoid language that says players build houses directly on sacred or historical landmarks.</li>
+          <li>Use wording such as <strong>buy landmark rights</strong>, <strong>upgrade landmark</strong>, <strong>develop tourism zone</strong>, and <strong>upgrade visitor facilities</strong>.</li>
+          <li>Keep all names, rules text, board layout, art direction, and UI copy original. Do not copy Monopoly branding, names, board layout, card text, artwork, or protected assets.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>3. Database migration plan</h2>
+        <p>Add a focused Phase 5 migration after the existing realtime migrations.</p>
+        <pre><code>supabase/migrations/20260612000100_add_timed_turns_and_upgrades.sql</code></pre>
+        <h3>Rooms additions</h3>
+        <pre><code>alter table public.rooms
+  add column turn_phase text not null default 'waiting_to_roll',
+  add column action_deadline_at timestamptz null,
+  add column pending_tile_id uuid null references public.game_tiles(id) on delete set null,
+  add column pending_action text null;
+
+alter table public.rooms
+  add constraint rooms_turn_phase_check
+  check (turn_phase in (
+    'waiting_to_roll',
+    'resolving_roll',
+    'waiting_to_buy_or_upgrade',
+    'turn_ending',
+    'finished'
+  ));
+
+alter table public.rooms
+  add constraint rooms_pending_action_check
+  check (pending_action is null or pending_action in ('buy_property', 'upgrade_property'));</code></pre>
+        <h3>Properties additions</h3>
+        <pre><code>alter table public.properties
+  add column upgrade_level integer not null default 0;
+
+alter table public.properties
+  add constraint properties_upgrade_level_check
+  check (upgrade_level between 0 and 3);</code></pre>
+        <h3>Recommended indexes</h3>
+        <pre><code>create index rooms_action_deadline_at_idx
+  on public.rooms (action_deadline_at)
+  where action_deadline_at is not null;
+
+create index rooms_turn_phase_deadline_idx
+  on public.rooms (turn_phase, action_deadline_at);</code></pre>
+        <div class="callout soft">
+          The migration should also update TypeScript database types so <code>rooms</code> and <code>properties</code>
+          match the schema.
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4. Timed turn state machine</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Meaning</th>
+              <th>Deadline behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>waiting_to_roll</code></td>
+              <td>Current player may roll dice.</td>
+              <td>If expired, server auto-rolls and resolves movement.</td>
+            </tr>
+            <tr>
+              <td><code>resolving_roll</code></td>
+              <td>Server is calculating dice, movement, tile effects, rent, bankruptcy, and pending decisions.</td>
+              <td>No client action should be accepted.</td>
+            </tr>
+            <tr>
+              <td><code>waiting_to_buy_or_upgrade</code></td>
+              <td>Current player is deciding whether to buy landmark rights or upgrade visitor facilities.</td>
+              <td>If expired, server skips the decision and advances to the next active player.</td>
+            </tr>
+            <tr>
+              <td><code>turn_ending</code></td>
+              <td>Server is advancing to the next active player and writing events/snapshots.</td>
+              <td>No client action should be accepted.</td>
+            </tr>
+            <tr>
+              <td><code>finished</code></td>
+              <td>Game has a winner.</td>
+              <td>No turn deadlines remain.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>5. Timeout rules</h2>
+        <ol>
+          <li>When a player turn starts, set <code>turn_phase = 'waiting_to_roll'</code> and <code>action_deadline_at = now() + interval '30 seconds'</code>.</li>
+          <li>If the deadline expires while waiting to roll, the server auto-rolls, moves the player, and resolves the landing tile.</li>
+          <li>If the player lands on an unowned property, set <code>turn_phase = 'waiting_to_buy_or_upgrade'</code>, <code>pending_action = 'buy_property'</code>, <code>pending_tile_id</code>, and a new 30-second deadline.</li>
+          <li>If the player lands on their own property and upgrade level is below 3, set <code>pending_action = 'upgrade_property'</code>, <code>pending_tile_id</code>, and a new 30-second deadline.</li>
+          <li>If the buy/upgrade deadline expires, the server clears pending fields, logs a skipped decision, and advances to the next active player.</li>
+          <li>If a tile has no pending decision, the server resolves it and advances the turn immediately.</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>6. Server helper plan: <code>resolveExpiredTurnAction(roomId)</code></h2>
+        <p>Create a server helper in <code>src/lib/server/turn-timeouts.ts</code> or inside the game service layer.</p>
+        <pre><code>export async function resolveExpiredTurnAction(roomId: string) {
+  // 1. Load room and current state with admin client.
+  // 2. If no action_deadline_at or deadline is in the future, return unchanged.
+  // 3. Use a safe conditional update or transaction/RPC lock to avoid duplicate execution.
+  // 4. If turn_phase is waiting_to_roll, auto-roll through the same engine path as manual roll.
+  // 5. If turn_phase is waiting_to_buy_or_upgrade, skip pending action and advance turn.
+  // 6. Write game_events and game_snapshots.
+  // 7. Return updated game/lobby state.
+}</code></pre>
+        <h3>Call sites</h3>
+        <ul>
+          <li>Before returning game/room state from server API routes.</li>
+          <li>Before processing roll, buy, upgrade, or end-turn actions.</li>
+          <li>From an optional scheduled endpoint or cron route in later deployment hardening.</li>
+        </ul>
+        <div class="callout warning">
+          The helper must be idempotent and safe against duplicate execution. Two clients may ask for state at the same
+          time after a deadline has expired.
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>7. Game engine module plan</h2>
+        <div class="grid">
+          <div class="mini-card">
+            <h3><code>src/lib/game/types.ts</code></h3>
+            <p>Add turn phases, pending action types, dice results, property upgrade state, action result types, and deadline metadata.</p>
+          </div>
+          <div class="mini-card">
+            <h3><code>src/lib/game/board.ts</code></h3>
+            <p>Prepare a 24-tile board with Thai landmark/travel property names and original special tiles.</p>
+          </div>
+          <div class="mini-card">
+            <h3><code>src/lib/game/rules.ts</code></h3>
+            <p>Pure helpers for movement, rent, upgrade costs, upgrade eligibility, bankruptcy, winner detection, and next player.</p>
+          </div>
+          <div class="mini-card">
+            <h3><code>src/lib/game/engine.ts</code></h3>
+            <p>Server-side orchestration for start turn, roll dice, resolve tile, buy landmark rights, upgrade visitor facilities, auto-roll, and auto-skip.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>8. MVP property upgrade rules</h2>
+        <ul>
+          <li>Upgrade level starts at <code>0</code>.</li>
+          <li>Maximum upgrade level is <code>3</code>.</li>
+          <li>Upgrade is available only when the current player lands on their own property.</li>
+          <li>Level 1 upgrade cost = 50% of tile price.</li>
+          <li>Level 2 upgrade cost = 75% of tile price.</li>
+          <li>Level 3 upgrade cost = 100% of tile price.</li>
+          <li>Final rent = <code>base_rent * (1 + upgrade_level)</code>.</li>
+          <li>Use player-facing copy such as “upgrade visitor facilities” or “develop tourism zone,” not “build houses on landmarks.”</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>9. Thai landmark board naming plan</h2>
+        <p>Replace or prepare to replace property names with original Thailand landmark/travel-themed property rights.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Suggested property name</th>
+              <th>Player-facing ownership wording</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Grand Palace Quarter</td><td>Buy landmark rights / upgrade visitor facilities</td></tr>
+            <tr><td>Wat Arun Riverside</td><td>Buy landmark rights / develop tourism zone</td></tr>
+            <tr><td>Yaowarat Market</td><td>Buy market route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Ayutthaya Heritage Park</td><td>Buy heritage route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Sukhothai Old City</td><td>Buy heritage route rights / develop tourism zone</td></tr>
+            <tr><td>Doi Suthep Viewpoint</td><td>Buy viewpoint rights / upgrade visitor facilities</td></tr>
+            <tr><td>Chiang Mai Night Bazaar</td><td>Buy bazaar route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Phi Phi Island Pier</td><td>Buy island pier rights / develop tourism zone</td></tr>
+            <tr><td>Phuket Old Town</td><td>Buy old town route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Krabi Emerald Bay</td><td>Buy bay route rights / develop tourism zone</td></tr>
+            <tr><td>Samui Coconut Beach</td><td>Buy beach route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Hua Hin Railway</td><td>Buy rail heritage route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Khao Yai Forest Gate</td><td>Buy nature route rights / develop tourism zone</td></tr>
+            <tr><td>Damnoen Floating Market</td><td>Buy floating market route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Chiang Khan Walking Street</td><td>Buy walking street route rights / upgrade visitor facilities</td></tr>
+            <tr><td>Phang Nga Bay</td><td>Buy bay route rights / develop tourism zone</td></tr>
+          </tbody>
+        </table>
+        <p>Keep special tiles original and non-Monopoly-like: Start, Tax, Chance, Rest Stop, Storm Detour, and Bonus.</p>
+      </section>
+
+      <section class="card">
+        <h2>10. API route plan for Phase 5</h2>
+        <ul>
+          <li><code>POST /api/game/start</code>: initialize active game, first turn, deadline, and event log.</li>
+          <li><code>POST /api/game/roll-dice</code>: validate current player and phase, call timeout resolver, then roll on the server.</li>
+          <li><code>POST /api/game/buy-property</code>: validate pending buy action, current player, deadline, money, and ownership.</li>
+          <li><code>POST /api/game/upgrade-property</code>: validate pending upgrade action, ownership, max level, cost, and deadline.</li>
+          <li><code>POST /api/game/skip-pending-action</code>: optional explicit skip endpoint using the same server path as timeout auto-skip.</li>
+          <li><code>GET /api/game/[roomCode]</code>: call <code>resolveExpiredTurnAction</code> before returning state.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>11. Minimal UI plan</h2>
+        <ul>
+          <li>Add visual countdowns for roll and buy/upgrade decisions, based on <code>action_deadline_at</code>.</li>
+          <li>Show the countdown as informational only; the server remains authoritative.</li>
+          <li>Show available actions returned from the server: roll, buy landmark rights, upgrade visitor facilities, or skip.</li>
+          <li>Keep UI changes minimal. Do not build the full animated board yet.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>12. Phase 5 implementation sequence</h2>
+        <div class="phase"><strong>Step 1 — Migration and types</strong>Add rooms turn timing fields, property upgrade level, constraints, indexes, and TypeScript database types.</div>
+        <div class="phase"><strong>Step 2 — Thai board seed update</strong>Replace or prepare board property names with the Thai landmark/travel set while keeping special tiles original.</div>
+        <div class="phase"><strong>Step 3 — Pure rules</strong>Add dice, movement, rent, upgrade cost, upgrade eligibility, bankruptcy, winner, and next-turn helpers.</div>
+        <div class="phase"><strong>Step 4 — Engine orchestration</strong>Add roll, auto-roll, tile resolution, pending buy/upgrade, buy, upgrade, skip, and turn advancement functions.</div>
+        <div class="phase"><strong>Step 5 — Timeout resolver</strong>Implement <code>resolveExpiredTurnAction(roomId)</code> and call it before game state reads/actions.</div>
+        <div class="phase"><strong>Step 6 — API routes</strong>Add validated game action routes with event/snapshot persistence.</div>
+        <div class="phase"><strong>Step 7 — Minimal UI hooks</strong>Add countdown display and action buttons, with all mutations routed through API routes.</div>
+      </section>
+
+      <section class="card">
+        <h2>13. Risks and mitigations</h2>
+        <table>
+          <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td>Client-side timer cheating</td><td>Store true deadlines in the database and resolve expiry on the server before reads/actions.</td></tr>
+            <tr><td>Duplicate auto-roll or auto-skip</td><td>Use safe conditional updates, transactions, or RPC locking around deadline resolution.</td></tr>
+            <tr><td>Disrespectful landmark language</td><td>Use “landmark rights,” “tourism zone,” and “visitor facilities,” not direct building language on sacred/historic places.</td></tr>
+            <tr><td>Monopoly similarity</td><td>Keep a 24-tile original board, original Thai travel names, original card wording, CSS-first art, and no protected assets.</td></tr>
+            <tr><td>Over-scoping Phase 5</td><td>Do not add trading, auctions, mortgage, houses, hotels, chat, bots, login, animations, or full board UI.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>14. First recommended implementation step</h2>
+        <p>
+          Start Phase 5 by adding the timed-turn database migration and TypeScript type updates. The engine and API
+          routes should depend on these persisted fields instead of browser timers.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Property Tycoon Online Phase 5 plan — server-authoritative timed turns, Thai travel landmarks, and original pixel-art game direction.
+    </footer>
+  </body>
+</html>
