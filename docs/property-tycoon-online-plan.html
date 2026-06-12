@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Property Tycoon Online — Implementation Plan</title>
+    <style>
+      :root {
+        --ink: #2b1f3a;
+        --paper: #fff7df;
+        --cream: #fff2cc;
+        --mint: #b8f2d0;
+        --sky: #a0d8ff;
+        --coral: #ff9aa2;
+        --lavender: #cdb4db;
+        --gold: #ffd166;
+        --shadow: rgba(43, 31, 58, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgba(43, 31, 58, 0.04) 1px, transparent 1px),
+          linear-gradient(rgba(43, 31, 58, 0.04) 1px, transparent 1px),
+          var(--paper);
+        background-size: 16px 16px;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        line-height: 1.6;
+      }
+
+      a {
+        color: #4a3aff;
+      }
+
+      code,
+      pre {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+      }
+
+      pre {
+        overflow-x: auto;
+        padding: 1rem;
+        background: #1f1730;
+        color: #fff7df;
+        border: 3px solid var(--ink);
+        box-shadow: 5px 5px 0 var(--ink);
+      }
+
+      .page {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 64px;
+      }
+
+      .hero,
+      .card {
+        background: rgba(255, 247, 223, 0.94);
+        border: 3px solid var(--ink);
+        box-shadow: 6px 6px 0 var(--ink);
+      }
+
+      .hero {
+        padding: clamp(24px, 5vw, 56px);
+        margin-bottom: 28px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        width: 160px;
+        height: 160px;
+        right: -32px;
+        top: -32px;
+        background:
+          linear-gradient(var(--gold) 0 0) 32px 32px / 32px 32px no-repeat,
+          linear-gradient(var(--coral) 0 0) 64px 64px / 32px 32px no-repeat,
+          linear-gradient(var(--sky) 0 0) 96px 96px / 32px 32px no-repeat,
+          linear-gradient(var(--mint) 0 0) 32px 96px / 32px 32px no-repeat,
+          linear-gradient(var(--lavender) 0 0) 96px 32px / 32px 32px no-repeat;
+        opacity: 0.85;
+        image-rendering: pixelated;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        padding: 4px 10px;
+        margin-bottom: 16px;
+        background: var(--mint);
+        border: 2px solid var(--ink);
+        box-shadow: 3px 3px 0 var(--ink);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.15;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin: 0 0 16px;
+        font-size: clamp(2.2rem, 8vw, 5rem);
+      }
+
+      h2 {
+        margin: 0 0 18px;
+        font-size: clamp(1.5rem, 4vw, 2.35rem);
+      }
+
+      h3 {
+        margin-top: 24px;
+        font-size: 1.15rem;
+      }
+
+      .subtitle {
+        max-width: 760px;
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .toc {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .toc a,
+      .phase {
+        display: block;
+        padding: 12px 14px;
+        color: var(--ink);
+        text-decoration: none;
+        background: var(--cream);
+        border: 2px solid var(--ink);
+        box-shadow: 3px 3px 0 var(--ink);
+      }
+
+      .toc a:hover {
+        transform: translate(1px, 1px);
+        box-shadow: 2px 2px 0 var(--ink);
+      }
+
+      .card {
+        padding: clamp(18px, 4vw, 30px);
+        margin: 0 0 28px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .callout {
+        padding: 14px 16px;
+        margin: 16px 0;
+        background: var(--sky);
+        border: 2px solid var(--ink);
+      }
+
+      .warning {
+        background: var(--gold);
+      }
+
+      .success {
+        background: var(--mint);
+      }
+
+      .phase {
+        margin-bottom: 12px;
+      }
+
+      .phase strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0;
+        background: #fffaf0;
+      }
+
+      th,
+      td {
+        padding: 10px;
+        text-align: left;
+        border: 2px solid var(--ink);
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--lavender);
+      }
+
+      .footer {
+        padding: 20px;
+        text-align: center;
+        color: rgba(43, 31, 58, 0.72);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <span class="eyebrow">Implementation Plan</span>
+        <h1>Property Tycoon Online</h1>
+        <p class="subtitle">
+          A multiplayer online property trading board game inspired by classic property tycoon games, built with original cute pixel art direction and server-authoritative gameplay.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="toc-title">
+        <h2 id="toc-title">Contents</h2>
+        <ol class="toc">
+          <li><a href="#repo-state">Repository state</a></li>
+          <li><a href="#missing-setup">Missing setup</a></li>
+          <li><a href="#schema">Database schema</a></li>
+          <li><a href="#routes">Routes</a></li>
+          <li><a href="#components">Components</a></li>
+          <li><a href="#engine">Game engine</a></li>
+          <li><a href="#realtime">Realtime strategy</a></li>
+          <li><a href="#ui">Pixel UI strategy</a></li>
+          <li><a href="#phases">PR phases</a></li>
+          <li><a href="#risks">Risks</a></li>
+          <li><a href="#first-step">First step</a></li>
+        </ol>
+      </section>
+
+      <section id="repo-state" class="card">
+        <h2>1. Current repository state</h2>
+        <p>The repository is effectively empty and currently contains only a README file.</p>
+        <ul>
+          <li>Current path inspected: <code>the repository workspace</code></li>
+          <li>Current branch: <code>work</code></li>
+          <li>Only visible project file: <code>README.md</code></li>
+          <li>No Next.js scaffold, package metadata, TypeScript config, Tailwind config, Supabase helpers, routes, components, or game engine modules exist yet.</li>
+          <li>No <code>AGENTS.md</code> instruction files were found during inspection.</li>
+          <li>The git working tree was clean before this plan document was added.</li>
+        </ul>
+      </section>
+
+      <section id="missing-setup" class="card">
+        <h2>2. Missing dependencies or setup</h2>
+        <p>The project needs a full web application scaffold and Supabase integration setup.</p>
+        <div class="grid">
+          <div class="callout">
+            <h3>Required runtime</h3>
+            <ul>
+              <li>Next.js App Router</li>
+              <li>React and React DOM</li>
+              <li>TypeScript</li>
+              <li>Tailwind CSS</li>
+              <li>Supabase client libraries</li>
+            </ul>
+          </div>
+          <div class="callout success">
+            <h3>Environment variables</h3>
+            <ul>
+              <li><code>NEXT_PUBLIC_SUPABASE_URL</code></li>
+              <li><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></li>
+            </ul>
+          </div>
+          <div class="callout warning">
+            <h3>Important safety rule</h3>
+            <p>Do not hardcode the provided Supabase URL or publishable key in source code. Add <code>.env.example</code> with placeholder values only and do not commit <code>.env.local</code>.</p>
+          </div>
+        </div>
+        <h3>Suggested dependencies</h3>
+        <pre><code>{
+  "dependencies": {
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "clsx": "latest",
+    "nanoid": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  }
+}</code></pre>
+      </section>
+
+      <section id="schema" class="card">
+        <h2>3. Proposed database schema</h2>
+        <p>Supabase Postgres should store authoritative room, player, property, event, and snapshot state.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Table</th>
+              <th>Purpose</th>
+              <th>Key fields</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>rooms</code></td>
+              <td>Room, lobby, and game lifecycle.</td>
+              <td><code>code</code>, <code>status</code>, <code>host_player_id</code>, <code>current_turn_player_id</code>, <code>winner_player_id</code>, <code>turn_number</code></td>
+            </tr>
+            <tr>
+              <td><code>players</code></td>
+              <td>Players within rooms.</td>
+              <td><code>room_id</code>, <code>display_name</code>, <code>avatar_key</code>, <code>is_host</code>, <code>is_ready</code>, <code>money</code>, <code>position</code>, <code>status</code></td>
+            </tr>
+            <tr>
+              <td><code>game_tiles</code></td>
+              <td>Static tile definitions for the original board.</td>
+              <td><code>tile_index</code>, <code>type</code>, <code>name</code>, <code>price</code>, <code>rent</code>, <code>amount</code>, <code>color_group</code></td>
+            </tr>
+            <tr>
+              <td><code>properties</code></td>
+              <td>Room-specific property ownership.</td>
+              <td><code>room_id</code>, <code>tile_id</code>, <code>owner_player_id</code>, <code>purchased_at</code></td>
+            </tr>
+            <tr>
+              <td><code>chance_cards</code></td>
+              <td>Original chance card definitions.</td>
+              <td><code>card_key</code>, <code>type</code>, <code>title</code>, <code>description</code>, <code>amount</code>, <code>steps</code></td>
+            </tr>
+            <tr>
+              <td><code>game_events</code></td>
+              <td>Append-only visible event log.</td>
+              <td><code>room_id</code>, <code>player_id</code>, <code>event_type</code>, <code>message</code>, <code>payload</code></td>
+            </tr>
+            <tr>
+              <td><code>game_snapshots</code></td>
+              <td>Compact room state snapshots for hydration, recovery, and debugging.</td>
+              <td><code>room_id</code>, <code>state</code>, <code>created_at</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Add indexes for room lookup, room-scoped players/properties/events, and latest snapshots. Add constraints for six-character room codes, valid statuses, tile types, and card types.</p>
+      </section>
+
+      <section id="routes" class="card">
+        <h2>4. Proposed app routes and API routes</h2>
+        <h3>Pages</h3>
+        <ul>
+          <li><code>src/app/page.tsx</code>: landing page with create-room and join-room forms.</li>
+          <li><code>src/app/room/[roomCode]/page.tsx</code>: room page that displays lobby, active game, or finished state.</li>
+        </ul>
+        <h3>API routes</h3>
+        <ul>
+          <li><code>src/app/api/rooms/create/route.ts</code>: create room, generate unique six-character code, create host player.</li>
+          <li><code>src/app/api/rooms/join/route.ts</code>: validate room and add player if lobby has fewer than four players.</li>
+          <li><code>src/app/api/game/start/route.ts</code>: host-only start route for rooms with two to four players.</li>
+          <li><code>src/app/api/game/roll-dice/route.ts</code>: current-turn-only server dice roll and tile resolution.</li>
+          <li><code>src/app/api/game/buy-property/route.ts</code>: current-player purchase validation and ownership update.</li>
+          <li><code>src/app/api/game/end-turn/route.ts</code>: advance to next non-bankrupt player.</li>
+        </ul>
+        <p>For the MVP, local storage can hold <code>playerId</code> after room creation or joining. Each API route must validate that the submitted player ID belongs to the requested room.</p>
+      </section>
+
+      <section id="components" class="card">
+        <h2>5. Proposed component structure</h2>
+        <pre><code>src/components/Board/GameBoard.tsx
+src/components/Board/BoardTile.tsx
+src/components/Board/PlayerToken.tsx
+
+src/components/Lobby/LobbyPanel.tsx
+src/components/Lobby/PlayerList.tsx
+
+src/components/Game/PlayerPanel.tsx
+src/components/Game/ActionPanel.tsx
+src/components/Game/EventLog.tsx
+src/components/Game/Dice.tsx
+src/components/Game/PixelCard.tsx</code></pre>
+        <p>Components should be presentational and should not calculate authoritative dice, movement, rent, money changes, bankruptcy, or winner detection. Game actions must call API routes.</p>
+      </section>
+
+      <section id="engine" class="card">
+        <h2>6. Proposed game engine structure</h2>
+        <pre><code>src/lib/game/types.ts
+src/lib/game/board.ts
+src/lib/game/cards.ts
+src/lib/game/rules.ts
+src/lib/game/engine.ts</code></pre>
+        <h3>Module responsibilities</h3>
+        <ul>
+          <li><code>types.ts</code>: shared game types for rooms, players, tiles, cards, properties, dice, events, and game state.</li>
+          <li><code>board.ts</code>: original 24-tile MVP board definition.</li>
+          <li><code>cards.ts</code>: original chance card definitions.</li>
+          <li><code>rules.ts</code>: pure helpers for dice, movement, rent, tile effects, bankruptcy, winner detection, and next-turn selection.</li>
+          <li><code>engine.ts</code>: orchestrates <code>startGame</code>, <code>rollDice</code>, <code>buyProperty</code>, and <code>endTurn</code>.</li>
+        </ul>
+        <p>Recommended original tile names include cozy pixel-world concepts such as Mochi Market, Pixel Pier, Cloud Bakery, Lantern Lane, Bamboo Arcade, and Sunny Studio.</p>
+      </section>
+
+      <section id="realtime" class="card">
+        <h2>7. Supabase Realtime strategy</h2>
+        <ol>
+          <li>Initial page load fetches the current room state by room code.</li>
+          <li>The client subscribes to room-scoped changes for <code>rooms</code>, <code>players</code>, <code>properties</code>, and <code>game_events</code>.</li>
+          <li>When realtime events arrive, update local state incrementally or refetch compact room state.</li>
+          <li>Use <code>game_events</code> for the visible event log.</li>
+          <li>Use <code>game_snapshots</code> for faster reload/reconnect recovery.</li>
+        </ol>
+        <div class="callout warning">
+          <strong>Safety rule:</strong> Realtime is display-only. It must never authorize or compute game actions.
+        </div>
+      </section>
+
+      <section id="ui" class="card">
+        <h2>8. Pixel art UI strategy using Tailwind/CSS first</h2>
+        <p>Build a cute retro pixel board game style without external image assets.</p>
+        <ul>
+          <li>Use CSS and Tailwind utility classes for pixel borders, shadows, dice, tokens, and cards.</li>
+          <li>Use hard-edged shapes, cozy colors, and <code>image-rendering: pixelated</code>.</li>
+          <li>Create a responsive original board layout instead of copying Monopoly board layout or color ordering.</li>
+          <li>Use original CSS-only player tokens such as pixel blobs, tiny robots, stars, or cozy abstract mascots.</li>
+        </ul>
+        <h3>Suggested palette</h3>
+        <ul>
+          <li>Cream: <code>#fff2cc</code></li>
+          <li>Mint: <code>#b8f2d0</code></li>
+          <li>Sky: <code>#a0d8ff</code></li>
+          <li>Coral: <code>#ff9aa2</code></li>
+          <li>Lavender: <code>#cdb4db</code></li>
+          <li>Cocoa outline: <code>#2b1f3a</code></li>
+          <li>Gold: <code>#ffd166</code></li>
+        </ul>
+      </section>
+
+      <section id="phases" class="card">
+        <h2>9. PR-sized implementation phases</h2>
+        <div class="phase"><strong>Phase 1 — Project scaffold and environment</strong>Add Next.js App Router, TypeScript, Tailwind, Supabase dependencies, <code>.env.example</code>, and base README setup notes.</div>
+        <div class="phase"><strong>Phase 2 — Database schema and seed data</strong>Add Supabase migrations, original board tiles, original chance cards, constraints, and indexes.</div>
+        <div class="phase"><strong>Phase 3 — Supabase helpers and typed game model</strong>Add client/server Supabase helpers and shared game types.</div>
+        <div class="phase"><strong>Phase 4 — Room creation and lobby</strong>Build create/join flows, lobby UI, player list, host badge, and room capacity enforcement.</div>
+        <div class="phase"><strong>Phase 5 — Game engine MVP</strong>Implement server-side rules for dice, movement, tile effects, rent, buying, bankruptcy, and winner detection.</div>
+        <div class="phase"><strong>Phase 6 — Game API routes</strong>Add validated start, roll dice, buy property, and end-turn API routes with event logging and snapshots.</div>
+        <div class="phase"><strong>Phase 7 — Game UI</strong>Build responsive board, player tokens, dice, action panel, player panel, cards, and event log.</div>
+        <div class="phase"><strong>Phase 8 — Realtime sync</strong>Add room-scoped Supabase Realtime subscriptions and reconnect/refetch behavior.</div>
+        <div class="phase"><strong>Phase 9 — Hardening and deployment readiness</strong>Add validation, error states, deployment notes, QA checklist, and optional tests for pure game rules.</div>
+      </section>
+
+      <section id="risks" class="card">
+        <h2>10. Risks and how to avoid them</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Risk</th>
+              <th>Mitigation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Accidentally copying Monopoly-protected content</td>
+              <td>Use original names, card text, tile layout, visual style, and token concepts. Do not use Monopoly branding, property names, artwork, board order, or card wording.</td>
+            </tr>
+            <tr>
+              <td>Client-side cheating</td>
+              <td>Generate dice and calculate movement, money, rent, bankruptcy, and winner status only on the server through API routes.</td>
+            </tr>
+            <tr>
+              <td>Race conditions during turns</td>
+              <td>Validate current turn at read and write time. Use safe update patterns or Supabase RPC transactions for critical mutations.</td>
+            </tr>
+            <tr>
+              <td>Room code collisions</td>
+              <td>Use a unique constraint and retry six-character uppercase alphanumeric code generation on conflict.</td>
+            </tr>
+            <tr>
+              <td>Supabase key misuse</td>
+              <td>Use environment variables only, keep <code>.env.local</code> out of git, and avoid privileged direct writes from client components.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="first-step" class="card">
+        <h2>11. First recommended implementation step</h2>
+        <p>Start with <strong>Phase 1: scaffold the Next.js App Router TypeScript project with Tailwind and environment files</strong>.</p>
+        <p>This should be the first implementation PR because every later phase depends on the application structure, dependency setup, Tailwind config, and environment variable conventions.</p>
+      </section>
+
+      <footer class="footer">
+        Property Tycoon Online plan — original pixel-style multiplayer board game MVP.
+      </footer>
+    </main>
+  </body>
+</html>
