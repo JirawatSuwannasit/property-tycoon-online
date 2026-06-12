@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GameBoard } from "@/components/Board/GameBoard";
+import { PixelDice } from "@/components/Game/PixelDice";
 import { PixelButton, PixelPanel } from "@/components/ui";
 import { parseJsonResponse } from "@/lib/client/http";
 import { loadPlayerSession, type StoredPlayerSession } from "@/lib/client/player-session";
@@ -21,6 +22,37 @@ type PendingDecision = {
   sellUpgradeRefund: number | null;
   sellPropertyRefund: number | null;
   secondsRemaining: number;
+};
+
+type RollAnimation = {
+  playerId: string;
+  playerName: string;
+  die1: number;
+  die2: number;
+  total: number;
+  fromPosition: number;
+  toPosition: number;
+  pathTiles: number[];
+  passedStart: boolean;
+  startBonusAwarded: number;
+  landedTileName: string;
+  resultingTurnPhase: string;
+  pendingAction: string | null;
+};
+
+type ActiveMovement = {
+  playerId: string;
+  position: number;
+  activeTileIndex: number | null;
+  showStartBonus: boolean;
+};
+
+type DiceDisplay = {
+  die1: number | null;
+  die2: number | null;
+  total: number | null;
+  playerName: string | null;
+  rolling: boolean;
 };
 
 type GameApiResponse = {
@@ -85,6 +117,7 @@ type GameApiResponse = {
       secondsRemaining: number;
     };
   };
+  roll?: RollAnimation;
   message?: string;
   error?: string;
   code?: string;
@@ -106,6 +139,10 @@ function formatCoins(value: number | null) {
   return value == null ? "—" : `${value} coins`;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function getVisualSecondsRemaining(deadline: string | null, now: number) {
   if (!deadline) {
     return 0;
@@ -121,6 +158,9 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
   const [state, setState] = useState<GameApiResponse["state"] | null>(null);
   const [message, setMessage] = useState("Load game state after the host starts the game.");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [activeMovement, setActiveMovement] = useState<ActiveMovement | null>(null);
+  const [diceDisplay, setDiceDisplay] = useState<DiceDisplay>({ die1: null, die2: null, total: null, playerName: null, rolling: false });
   const [now, setNow] = useState(Date.now());
 
   const loadState = useCallback(
@@ -201,13 +241,54 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
         throw new Error(data.error ?? "Game action failed.");
       }
 
+      if (action === "roll-dice" && data.roll) {
+        setIsAnimating(true);
+        setDiceDisplay({ die1: null, die2: null, total: null, playerName: data.roll.playerName, rolling: true });
+        setMessage(`${data.roll.playerName} is rolling the dice...`);
+        await sleep(1200);
+        setDiceDisplay({
+          die1: data.roll.die1,
+          die2: data.roll.die2,
+          total: data.roll.total,
+          playerName: data.roll.playerName,
+          rolling: false,
+        });
+        setMessage(`${data.roll.playerName} rolled ${data.roll.die1} + ${data.roll.die2} = ${data.roll.total}.`);
+
+        for (const tileIndex of data.roll.pathTiles) {
+          setActiveMovement({
+            playerId: data.roll.playerId,
+            position: tileIndex,
+            activeTileIndex: tileIndex,
+            showStartBonus: data.roll.passedStart && tileIndex === 0,
+          });
+          await sleep(180);
+        }
+
+        if (data.roll.passedStart) {
+          setMessage(`${data.roll.playerName} passed Start and received +${data.roll.startBonusAwarded} coins.`);
+          await sleep(650);
+        }
+
+        setMessage(
+          `${data.roll.playerName} landed on ${data.roll.landedTileName}.${
+            data.roll.pendingAction ? " Decision available." : ""
+          }`,
+        );
+        setActiveMovement(null);
+        setIsAnimating(false);
+      }
+
       setState(data.state);
-      setMessage(data.message ?? "Game action completed.");
+      if (action !== "roll-dice") {
+        setMessage(data.message ?? "Game action completed.");
+      }
       await loadState(sessionRef.current, true);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Game action failed.");
     } finally {
       setIsSubmitting(false);
+      setIsAnimating(false);
     }
   }
 
@@ -257,6 +338,14 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
 
         <p className="pixel-border mb-4 bg-[#fff7df] p-3 text-sm font-bold">{message}</p>
 
+        <PixelDice
+          die1={diceDisplay.die1}
+          die2={diceDisplay.die2}
+          total={diceDisplay.total}
+          playerName={diceDisplay.playerName}
+          rolling={diceDisplay.rolling}
+        />
+
         {state ? (
           <div className="grid gap-3 text-sm font-bold text-[#4d3b61] lg:grid-cols-2">
             <p className="pixel-border bg-[#fff7df] p-3">Room status: {state.room.status}</p>
@@ -298,6 +387,9 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
               properties={state.properties}
               currentTurnPlayerId={state.room.current_turn_player_id}
               pendingTileId={pendingDecision?.tileId ?? null}
+              animatedPlayerPositions={activeMovement ? { [activeMovement.playerId]: activeMovement.position } : {}}
+              activePathTileIndex={activeMovement?.activeTileIndex ?? null}
+              showStartBonus={activeMovement?.showStartBonus ?? false}
             />
           </div>
         ) : null}
@@ -334,7 +426,7 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
           ) : state.room.turn_phase === "waiting_to_roll" ? (
             <div className="space-y-3">
               <p className="font-bold text-[#4d3b61]">Roll within {visualSecondsRemaining}s or the server will auto-roll.</p>
-              <PixelButton disabled={isSubmitting || !hints?.canRoll} onClick={() => postAction("roll-dice")}>Roll Dice</PixelButton>
+              <PixelButton disabled={isSubmitting || isAnimating || !hints?.canRoll} onClick={() => postAction("roll-dice")}>Roll Dice</PixelButton>
             </div>
           ) : pendingDecision?.action === "buy_property" ? (
             <div className="space-y-4">
@@ -348,8 +440,8 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
                 <p className="pixel-border bg-white p-3">Decision timer: {visualSecondsRemaining}s</p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <PixelButton disabled={isSubmitting || !hints?.canBuy} onClick={() => postAction("buy-property")}>Buy Rights</PixelButton>
-                <PixelButton disabled={isSubmitting || !hints?.canSkipDecision} onClick={() => postAction("skip-decision")} variant="accent">Skip</PixelButton>
+                <PixelButton disabled={isSubmitting || isAnimating || !hints?.canBuy} onClick={() => postAction("buy-property")}>Buy Rights</PixelButton>
+                <PixelButton disabled={isSubmitting || isAnimating || !hints?.canSkipDecision} onClick={() => postAction("skip-decision")} variant="accent">Skip</PixelButton>
               </div>
               {!hints?.canBuy ? <p className="text-xs font-bold text-[#5a4770]">Buy is disabled unless the server says this player can afford the pending property.</p> : null}
             </div>
@@ -372,10 +464,10 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
                 Sale refunds are intentionally lower than purchase and upgrade costs. Sell upgrades first before selling landmark rights.
               </p>
               <div className="flex flex-wrap gap-3">
-                <PixelButton disabled={isSubmitting || !hints?.canUpgrade} onClick={() => postAction("upgrade-property")}>Upgrade Facilities</PixelButton>
-                <PixelButton disabled={isSubmitting || !hints?.canSellUpgrade} onClick={() => postAction("sell-upgrade")} variant="secondary">Sell Upgrade</PixelButton>
-                <PixelButton disabled={isSubmitting || !hints?.canSellProperty} onClick={() => postAction("sell-property")} variant="secondary">Sell Property</PixelButton>
-                <PixelButton disabled={isSubmitting || !hints?.canSkipDecision} onClick={() => postAction("skip-decision")} variant="accent">Skip</PixelButton>
+                <PixelButton disabled={isSubmitting || isAnimating || !hints?.canUpgrade} onClick={() => postAction("upgrade-property")}>Upgrade Facilities</PixelButton>
+                <PixelButton disabled={isSubmitting || isAnimating || !hints?.canSellUpgrade} onClick={() => postAction("sell-upgrade")} variant="secondary">Sell Upgrade</PixelButton>
+                <PixelButton disabled={isSubmitting || isAnimating || !hints?.canSellProperty} onClick={() => postAction("sell-property")} variant="secondary">Sell Property</PixelButton>
+                <PixelButton disabled={isSubmitting || isAnimating || !hints?.canSkipDecision} onClick={() => postAction("skip-decision")} variant="accent">Skip</PixelButton>
               </div>
               {!hints?.canUpgrade && !hints?.canSellUpgrade && !hints?.canSellProperty ? (
                 <p className="text-xs font-bold text-[#5a4770]">

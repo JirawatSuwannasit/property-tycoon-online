@@ -43,6 +43,22 @@ type PendingDecisionState = {
   secondsRemaining: number;
 };
 
+export type RollAnimation = {
+  playerId: string;
+  playerName: string;
+  die1: number;
+  die2: number;
+  total: number;
+  fromPosition: number;
+  toPosition: number;
+  pathTiles: number[];
+  passedStart: boolean;
+  startBonusAwarded: number;
+  landedTileName: string;
+  resultingTurnPhase: TurnPhase;
+  pendingAction: PendingAction | null;
+};
+
 export type GameState = {
   room: Pick<
     RoomRow,
@@ -117,6 +133,10 @@ function secondsRemaining(deadline: string | null) {
 
 function rollDie() {
   return randomInt(1, 7);
+}
+
+function buildMovementPath(fromPosition: number, steps: number) {
+  return Array.from({ length: steps }, (_, index) => (fromPosition + index + 1) % MVP_BOARD_SIZE);
 }
 
 function upgradeCost(tile: TileRow, nextLevel: number) {
@@ -700,11 +720,11 @@ export async function rollDiceForRoom(roomCode: string, playerId: string, sessio
   }
 
   assertDeadlineActive(currentRoom);
-  await performRoll(supabase, currentRoom, player, false);
+  const roll = await performRoll(supabase, currentRoom, player, false);
   const updatedRoom = await loadRoomById(supabase, room.id);
   const state = await serializeGameState(supabase, updatedRoom, player.id);
   await saveGameSnapshot(supabase, room.id, state as unknown as Json);
-  return state;
+  return { state, roll };
 }
 
 async function performRoll(supabase: SupabaseAdmin, room: RoomRow, player: PlayerRow, automatic: boolean) {
@@ -727,6 +747,7 @@ async function performRoll(supabase: SupabaseAdmin, room: RoomRow, player: Playe
   const rawPosition = player.position + total;
   const passedStart = rawPosition >= MVP_BOARD_SIZE;
   const newPosition = rawPosition % MVP_BOARD_SIZE;
+  const pathTiles = buildMovementPath(player.position, total);
   const tile = tiles.find((candidate) => candidate.tile_index === newPosition);
 
   if (!tile) {
@@ -743,6 +764,23 @@ async function performRoll(supabase: SupabaseAdmin, room: RoomRow, player: Playe
   );
 
   await resolveLanding(supabase, lockedRoom as RoomRow, player, tile, passedStart ? 200 : 0);
+  const resultingRoom = await loadRoomById(supabase, room.id);
+
+  return {
+    playerId: player.id,
+    playerName: player.display_name,
+    die1: dieOne,
+    die2: dieTwo,
+    total,
+    fromPosition: player.position,
+    toPosition: newPosition,
+    pathTiles,
+    passedStart,
+    startBonusAwarded: passedStart ? 200 : 0,
+    landedTileName: tile.name,
+    resultingTurnPhase: resultingRoom.turn_phase,
+    pendingAction: resultingRoom.pending_action,
+  } satisfies RollAnimation;
 }
 
 export async function buyPendingProperty(roomCode: string, playerId: string, sessionToken: string) {

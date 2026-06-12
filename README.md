@@ -203,6 +203,18 @@ Phase 7 adds the first full visual board for the game page:
 - The current turn player's token and tile are highlighted, and pending decision tiles receive a separate highlight.
 - The board consumes the existing server game state and never calculates dice, rent, money, ownership, or movement on the client.
 
+## Phase 7.5 visual polish and roll feedback
+
+Phase 7.5 makes the active game view feel more like a cozy pixel-art board game while keeping gameplay server-authoritative:
+
+- The board uses warmer grass, wood, path, banner, and signboard-inspired styling with CSS/Tailwind only; no external or copyrighted assets are added.
+- Pixel dice feedback displays two dice, the individual die values, and the total roll.
+- The `roll-dice` API returns server-authoritative animation metadata (`die1`, `die2`, `total`, `fromPosition`, `toPosition`, `pathTiles`, `passedStart`, `startBonusAwarded`, `resultingTurnPhase`, and `pendingAction`).
+- The client animates player tokens step by step along the server-provided `pathTiles`, highlights each traversed tile, and shows a small Start bonus badge when the server says Start was passed.
+- Buy, upgrade, sell, and skip buttons remain hidden/disabled while dice or movement animation is running, then reappear from the refreshed server state after animation completes.
+
+The browser still does not calculate dice, movement, money, rent, ownership, upgrades, or turn transitions. It only animates and displays the server result.
+
 ## Verification notes
 
 The project includes the required runtime and type packages in `package.json`: Next.js, React, React DOM, Supabase SSR/client libraries, TypeScript, Node types, and React types.

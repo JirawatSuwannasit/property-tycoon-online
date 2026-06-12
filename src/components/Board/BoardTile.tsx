@@ -38,6 +38,8 @@ type BoardTileProps = {
   owner: BoardPlayerData | null;
   isCurrentTile: boolean;
   isPendingTile: boolean;
+  isPathTile: boolean;
+  showStartBonus: boolean;
   playerColorClass: (player: BoardPlayerData) => string;
 };
 
@@ -70,16 +72,32 @@ const GROUP_TONES: Record<string, string> = {
   gold: "border-t-[#f0b429]",
 };
 
-export function BoardTile({ tile, players, property, owner, isCurrentTile, isPendingTile, playerColorClass }: BoardTileProps) {
+export function BoardTile({
+  tile,
+  players,
+  property,
+  owner,
+  isCurrentTile,
+  isPendingTile,
+  isPathTile,
+  showStartBonus,
+  playerColorClass,
+}: BoardTileProps) {
   const tone = TILE_TONES[tile.type] ?? "bg-[#fff7df]";
   const groupTone = tile.color_group ? GROUP_TONES[tile.color_group] ?? "border-t-[#2b1f3a]" : "border-t-[#2b1f3a]";
 
   return (
     <div
-      className={`pixel-border relative flex min-h-28 flex-col justify-between overflow-hidden border-t-8 p-2 text-[#2b1f3a] ${tone} ${groupTone} ${
+      className={`pixel-border relative flex min-h-28 flex-col justify-between overflow-hidden border-t-8 bg-[linear-gradient(135deg,rgba(255,255,255,0.35)_0_25%,transparent_25%_50%,rgba(255,255,255,0.25)_50%_75%,transparent_75%)] bg-[length:10px_10px] p-2 text-[#2b1f3a] ${tone} ${groupTone} ${
         isCurrentTile ? "ring-4 ring-[#ff9aa2]" : ""
-      } ${isPendingTile ? "outline outline-4 outline-[#ffd166]" : ""}`}
+      } ${isPendingTile ? "outline outline-4 outline-[#ffd166]" : ""} ${isPathTile ? "animate-pulse ring-4 ring-[#ffd166]" : ""}`}
     >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-[#7a4f2a]/25" />
+      {showStartBonus ? (
+        <span className="pixel-border absolute right-1 top-7 animate-bounce bg-[#b8f2d0] px-2 py-1 text-[10px] font-black text-[#2b1f3a]">
+          +200
+        </span>
+      ) : null}
       <div className="flex items-start justify-between gap-1">
         <span className="font-mono text-[10px] font-black">#{tile.tile_index}</span>
         <span className="pixel-border bg-white px-1 text-[10px] font-black uppercase">{TILE_ICONS[tile.type] ?? "·"}</span>
