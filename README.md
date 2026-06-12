@@ -192,6 +192,17 @@ When a player lands on their own property, the server returns an own-property pe
 - Properties with upgrades cannot be sold directly; sell upgrades first.
 - All sale actions end the decision and advance to the next active player.
 
+
+## Phase 7 board UI
+
+Phase 7 adds the first full visual board for the game page:
+
+- A responsive 24-tile perimeter board for the Thailand Landmark Trail.
+- Tile cards show index, name, type, property price/rent, color group, owner marker, and upgrade level.
+- Player tokens are CSS/text-based pixel tokens and multiple tokens can share the same tile.
+- The current turn player's token and tile are highlighted, and pending decision tiles receive a separate highlight.
+- The board consumes the existing server game state and never calculates dice, rent, money, ownership, or movement on the client.
+
 ## Verification notes
 
 The project includes the required runtime and type packages in `package.json`: Next.js, React, React DOM, Supabase SSR/client libraries, TypeScript, Node types, and React types.

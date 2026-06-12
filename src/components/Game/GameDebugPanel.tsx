@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GameBoard } from "@/components/Board/GameBoard";
 import { PixelButton, PixelPanel } from "@/components/ui";
 import { parseJsonResponse } from "@/lib/client/http";
 import { loadPlayerSession, type StoredPlayerSession } from "@/lib/client/player-session";
@@ -38,6 +39,7 @@ type GameApiResponse = {
     players: Array<{
       id: string;
       display_name: string;
+      avatar_key: string;
       money: number;
       position: number;
       status: string;
@@ -46,6 +48,29 @@ type GameApiResponse = {
       play_order: number | null;
       is_current_turn: boolean;
       is_you: boolean;
+    }>;
+    tiles: Array<{
+      id: string;
+      tile_index: number;
+      type: string;
+      name: string;
+      description: string | null;
+      price: number | null;
+      rent: number | null;
+      amount: number | null;
+      color_group: string | null;
+    }>;
+    properties: Array<{
+      id: string;
+      tile_id: string;
+      owner_player_id: string;
+      upgrade_level: number;
+    }>;
+    events: Array<{
+      id: string;
+      event_type: string;
+      message: string;
+      created_at: string;
     }>;
     pendingTile: { name: string; tile_index: number; type: string; price: number | null; rent: number | null } | null;
     pendingDecision: PendingDecision | null;
@@ -265,6 +290,18 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
           </div>
         ) : null}
 
+        {state?.tiles.length ? (
+          <div className="mt-5 overflow-x-auto pb-3">
+            <GameBoard
+              tiles={state.tiles}
+              players={state.players}
+              properties={state.properties}
+              currentTurnPlayerId={state.room.current_turn_player_id}
+              pendingTileId={pendingDecision?.tileId ?? null}
+            />
+          </div>
+        ) : null}
+
         {process.env.NODE_ENV === "development" ? (
           <div className="pixel-border mt-5 grid gap-2 bg-[#cdb4db] p-4 text-xs font-bold text-[#2b1f3a] sm:grid-cols-2 lg:grid-cols-3">
             <p>localPlayerId: {session?.playerId ?? "none"}</p>
@@ -353,6 +390,23 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
             </div>
           )}
         </div>
+
+        {state?.events.length ? (
+          <div className="pixel-border mt-5 max-h-72 overflow-y-auto bg-[#fff7df] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Event Log</p>
+              <span className="pixel-border bg-[#a0d8ff] px-2 py-1 text-[10px] font-black uppercase">Latest {state.events.length}</span>
+            </div>
+            <div className="grid gap-2">
+              {state.events.slice(0, 12).map((event) => (
+                <div key={event.id} className="pixel-border bg-white p-3 text-xs font-bold text-[#4d3b61]">
+                  <p className="font-black uppercase text-[#2b1f3a]">{event.event_type.replaceAll("_", " ")}</p>
+                  <p>{event.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <p className="mt-4 text-xs font-bold text-[#5a4770]">
           This panel only displays server-provided state and calls API routes. Dice, movement, money, rent, ownership, upgrades, and timeouts are computed on the server.
