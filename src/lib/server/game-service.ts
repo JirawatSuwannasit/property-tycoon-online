@@ -24,6 +24,21 @@ type GameStateHints = {
   secondsRemaining: number;
 };
 
+type PendingDecisionState = {
+  action: PendingAction;
+  tileId: string;
+  tileName: string;
+  tileIndex: number;
+  price: number | null;
+  baseRent: number | null;
+  ownerPlayerId: string | null;
+  currentUpgradeLevel: number | null;
+  currentRent: number | null;
+  upgradeCost: number | null;
+  newRent: number | null;
+  secondsRemaining: number;
+};
+
 export type GameState = {
   room: Pick<
     RoomRow,
@@ -43,6 +58,7 @@ export type GameState = {
   properties: PropertyRow[];
   events: GameEventRow[];
   pendingTile: TileRow | null;
+  pendingDecision: PendingDecisionState | null;
   winner: GamePlayerState | null;
   hints: GameStateHints;
 };
@@ -267,6 +283,38 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
     ? properties.find((property) => property.room_id === room.id && property.tile_id === room.pending_tile_id) ?? null
     : null;
   const canActOnPending = viewerIsCurrent && room.turn_phase === "waiting_to_buy_or_upgrade";
+  const viewer = publicPlayers.find((player) => player.id === viewerId) ?? null;
+  const pendingDecision =
+    room.turn_phase === "waiting_to_buy_or_upgrade" && room.pending_action && pendingTile
+      ? (() => {
+          const currentUpgradeLevel = pendingProperty?.upgrade_level ?? null;
+          const nextUpgradeLevel = currentUpgradeLevel == null ? null : currentUpgradeLevel + 1;
+          const computedUpgradeCost =
+            room.pending_action === "upgrade_property" && nextUpgradeLevel != null && nextUpgradeLevel <= 3
+              ? upgradeCost(pendingTile, nextUpgradeLevel)
+              : null;
+          const computedCurrentRent = pendingProperty ? rentFor(pendingTile, pendingProperty) : pendingTile.rent;
+          const computedNewRent =
+            room.pending_action === "upgrade_property" && nextUpgradeLevel != null && pendingTile.rent != null
+              ? pendingTile.rent * (1 + nextUpgradeLevel)
+              : null;
+
+          return {
+            action: room.pending_action,
+            tileId: pendingTile.id,
+            tileName: pendingTile.name,
+            tileIndex: pendingTile.tile_index,
+            price: pendingTile.price,
+            baseRent: pendingTile.rent,
+            ownerPlayerId: pendingProperty?.owner_player_id ?? null,
+            currentUpgradeLevel,
+            currentRent: computedCurrentRent,
+            upgradeCost: computedUpgradeCost,
+            newRent: computedNewRent,
+            secondsRemaining: secondsRemaining(room.action_deadline_at),
+          };
+        })()
+      : null;
 
   return {
     room: {
@@ -287,14 +335,24 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
     properties,
     events: eventsResult.data as GameEventRow[],
     pendingTile,
+    pendingDecision,
     winner,
     hints: {
       canRoll: viewerIsCurrent && room.status === "playing" && room.turn_phase === "waiting_to_roll",
-      canBuy: canActOnPending && room.pending_action === "buy_property" && Boolean(pendingTile),
+      canBuy:
+        canActOnPending &&
+        room.pending_action === "buy_property" &&
+        Boolean(pendingTile && pendingTile.price != null && viewer && viewer.money >= pendingTile.price),
       canUpgrade:
         canActOnPending &&
         room.pending_action === "upgrade_property" &&
-        Boolean(pendingProperty && pendingProperty.upgrade_level < 3),
+        Boolean(
+          pendingProperty &&
+            pendingProperty.upgrade_level < 3 &&
+            pendingDecision?.upgradeCost != null &&
+            viewer &&
+            viewer.money >= pendingDecision.upgradeCost,
+        ),
       canSkipDecision: canActOnPending,
       secondsRemaining: secondsRemaining(room.action_deadline_at),
     },

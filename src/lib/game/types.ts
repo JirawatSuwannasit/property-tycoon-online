@@ -65,6 +65,21 @@ export type Player = {
   isYou?: boolean;
 };
 
+export type PendingDecision = {
+  action: PendingAction;
+  tileId: string;
+  tileName: string;
+  tileIndex: number;
+  price: number | null;
+  baseRent: number | null;
+  ownerPlayerId: string | null;
+  currentUpgradeLevel: number | null;
+  currentRent: number | null;
+  upgradeCost: number | null;
+  newRent: number | null;
+  secondsRemaining: number;
+};
+
 export type OwnedProperty = {
   id: string;
   roomId: string;
