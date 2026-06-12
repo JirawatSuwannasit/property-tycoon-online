@@ -77,6 +77,8 @@ export type PendingDecision = {
   currentRent: number | null;
   upgradeCost: number | null;
   newRent: number | null;
+  sellUpgradeRefund: number | null;
+  sellPropertyRefund: number | null;
   secondsRemaining: number;
 };
 

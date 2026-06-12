@@ -160,7 +160,9 @@ Phase 6 connects the server-authoritative game engine to API routes:
 - `POST /api/game/[roomCode]/roll-dice` validates the player session/current turn and rolls dice on the server.
 - `POST /api/game/[roomCode]/buy-property` buys pending landmark rights when the server says a buy decision is active.
 - `POST /api/game/[roomCode]/upgrade-property` upgrades visitor facilities when the server says an upgrade decision is active.
-- `POST /api/game/[roomCode]/skip-decision` skips the current buy/upgrade decision and advances the turn.
+- `POST /api/game/[roomCode]/sell-upgrade` sells one visitor-facility upgrade from an owned pending property for a server-calculated 50% refund of that upgrade level cost.
+- `POST /api/game/[roomCode]/sell-property` sells unupgraded landmark rights for a server-calculated 50% refund of the tile price and removes the ownership row.
+- `POST /api/game/[roomCode]/skip-decision` skips the current buy/upgrade/sell decision and advances the turn.
 - `POST /api/game/[roomCode]/resolve-timeout` lets the client ask the server to resolve an expired deadline; the server decides whether anything expired.
 
 Gameplay action routes require `playerId` and `sessionToken`. The raw token stays in browser `localStorage`; the database stores only `players.session_token_hash`.
@@ -178,6 +180,17 @@ Phase 6.5 adds a server-authoritative turn-order draw when the host starts the g
 - The room page displays a Turn Order panel after the game starts, highlights the current player, and shows `Your turn` or `Waiting for <player name>`.
 
 The client never shuffles or decides turn order. The host start API validates the lobby, draws cards server-side, stores the result, starts the first 30-second roll deadline, and writes game events for the draw and first player.
+
+## Phase 6.7 gameplay action panel and sell actions
+
+Phase 6.7 keeps host and non-host gameplay visibility identical after the game starts. If the current browser session belongs to `rooms.current_turn_player_id`, the action panel shows the same server-authorized roll, buy, upgrade, sell, and skip actions regardless of host status.
+
+When a player lands on their own property, the server returns an own-property pending decision. The client displays server-calculated values only:
+
+- `Sell Upgrade` is available when `upgrade_level > 0`; refund is `floor(current upgrade level cost * 0.5)`.
+- `Sell Property` is available only when `upgrade_level = 0`; refund is `floor(tile.price * 0.5)`, and the ownership row is deleted.
+- Properties with upgrades cannot be sold directly; sell upgrades first.
+- All sale actions end the decision and advance to the next active player.
 
 ## Verification notes
 

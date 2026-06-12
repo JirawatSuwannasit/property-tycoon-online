@@ -20,6 +20,8 @@ type GameStateHints = {
   canRoll: boolean;
   canBuy: boolean;
   canUpgrade: boolean;
+  canSellUpgrade: boolean;
+  canSellProperty: boolean;
   canSkipDecision: boolean;
   secondsRemaining: number;
 };
@@ -36,6 +38,8 @@ type PendingDecisionState = {
   currentRent: number | null;
   upgradeCost: number | null;
   newRent: number | null;
+  sellUpgradeRefund: number | null;
+  sellPropertyRefund: number | null;
   secondsRemaining: number;
 };
 
@@ -119,6 +123,14 @@ function upgradeCost(tile: TileRow, nextLevel: number) {
   const price = tile.price ?? 0;
   const multiplier = nextLevel === 1 ? 0.5 : nextLevel === 2 ? 0.75 : 1;
   return Math.ceil(price * multiplier);
+}
+
+function sellPropertyRefund(tile: TileRow) {
+  return Math.floor((tile.price ?? 0) * 0.5);
+}
+
+function sellUpgradeRefund(tile: TileRow, currentUpgradeLevel: number) {
+  return Math.floor(upgradeCost(tile, currentUpgradeLevel) * 0.5);
 }
 
 function rentFor(tile: TileRow, property: PropertyRow) {
@@ -298,6 +310,12 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
             room.pending_action === "upgrade_property" && nextUpgradeLevel != null && pendingTile.rent != null
               ? pendingTile.rent * (1 + nextUpgradeLevel)
               : null;
+          const computedSellUpgradeRefund =
+            room.pending_action === "upgrade_property" && currentUpgradeLevel != null && currentUpgradeLevel > 0
+              ? sellUpgradeRefund(pendingTile, currentUpgradeLevel)
+              : null;
+          const computedSellPropertyRefund =
+            room.pending_action === "upgrade_property" && currentUpgradeLevel === 0 ? sellPropertyRefund(pendingTile) : null;
 
           return {
             action: room.pending_action,
@@ -311,6 +329,8 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
             currentRent: computedCurrentRent,
             upgradeCost: computedUpgradeCost,
             newRent: computedNewRent,
+            sellUpgradeRefund: computedSellUpgradeRefund,
+            sellPropertyRefund: computedSellPropertyRefund,
             secondsRemaining: secondsRemaining(room.action_deadline_at),
           };
         })()
@@ -348,10 +368,29 @@ async function serializeGameState(supabase: SupabaseAdmin, room: RoomRow, curren
         room.pending_action === "upgrade_property" &&
         Boolean(
           pendingProperty &&
+            pendingProperty.owner_player_id === viewerId &&
             pendingProperty.upgrade_level < 3 &&
             pendingDecision?.upgradeCost != null &&
             viewer &&
             viewer.money >= pendingDecision.upgradeCost,
+        ),
+      canSellUpgrade:
+        canActOnPending &&
+        room.pending_action === "upgrade_property" &&
+        Boolean(
+          pendingProperty &&
+            pendingProperty.owner_player_id === viewerId &&
+            pendingProperty.upgrade_level > 0 &&
+            pendingDecision?.sellUpgradeRefund != null,
+        ),
+      canSellProperty:
+        canActOnPending &&
+        room.pending_action === "upgrade_property" &&
+        Boolean(
+          pendingProperty &&
+            pendingProperty.owner_player_id === viewerId &&
+            pendingProperty.upgrade_level === 0 &&
+            pendingDecision?.sellPropertyRefund != null,
         ),
       canSkipDecision: canActOnPending,
       secondsRemaining: secondsRemaining(room.action_deadline_at),
@@ -530,13 +569,28 @@ async function resolveLanding(supabase: SupabaseAdmin, room: RoomRow, player: Pl
   }
 
   if (property.owner_player_id === player.id) {
+    await setPendingDecision(supabase, room, tile, "upgrade_property");
+
     if (property.upgrade_level < 3) {
-      await setPendingDecision(supabase, room, tile, "upgrade_property");
-      await writeGameEvent(supabase, room.id, player.id, "upgrade_decision_started", `${player.display_name} can upgrade visitor facilities at ${tile.name}.`);
+      await writeGameEvent(
+        supabase,
+        room.id,
+        player.id,
+        "upgrade_decision_started",
+        `${player.display_name} can upgrade visitor facilities or sell at ${tile.name}.`,
+        { tileId: tile.id, upgradeLevel: property.upgrade_level },
+      );
       return;
     }
 
-    await maybeFinishOrAdvanceTurn(supabase, room, player.id);
+    await writeGameEvent(
+      supabase,
+      room.id,
+      player.id,
+      "sell_decision_started",
+      `${player.display_name} can sell an upgrade at ${tile.name}.`,
+      { tileId: tile.id, upgradeLevel: property.upgrade_level },
+    );
     return;
   }
 
@@ -774,6 +828,114 @@ export async function upgradePendingProperty(roomCode: string, playerId: string,
     upgradeLevel: nextLevel,
     cost,
   });
+  await maybeFinishOrAdvanceTurn(supabase, currentRoom, player.id);
+  const updatedRoom = await loadRoomById(supabase, currentRoom.id);
+  const state = await serializeGameState(supabase, updatedRoom, player.id);
+  await saveGameSnapshot(supabase, currentRoom.id, state as unknown as Json);
+  return state;
+}
+
+
+async function loadOwnedPendingPropertyForSale(supabase: SupabaseAdmin, room: RoomRow, player: PlayerRow) {
+  if (room.turn_phase !== "waiting_to_buy_or_upgrade" || !room.pending_tile_id) {
+    throw new GameApiError("No own-property decision is pending.", "NO_OWN_PROPERTY_PENDING", 409);
+  }
+
+  const tiles = await loadTiles(supabase);
+  const tile = tiles.find((candidate) => candidate.id === room.pending_tile_id && candidate.type === "property");
+
+  if (!tile) {
+    throw new GameApiError("Pending tile is not a property.", "NOT_PROPERTY", 409);
+  }
+
+  const properties = await loadProperties(supabase, room.id);
+  const property = properties.find((candidate) => candidate.tile_id === tile.id && candidate.owner_player_id === player.id);
+
+  if (!property) {
+    throw new GameApiError("Player does not own this pending property.", "NOT_OWNER", 403);
+  }
+
+  return { tile, property };
+}
+
+export async function sellPendingUpgrade(roomCode: string, playerId: string, sessionToken: string) {
+  const { supabase, room, player } = await requireGamePlayerSession(roomCode, playerId, sessionToken);
+  assertPlaying(room);
+  await resolveExpiredTurnAction(room.id);
+  const currentRoom = await loadRoomById(supabase, room.id);
+  assertCurrentPlayer(currentRoom, player.id);
+  assertDeadlineActive(currentRoom);
+
+  const { tile, property } = await loadOwnedPendingPropertyForSale(supabase, currentRoom, player);
+
+  if (property.upgrade_level <= 0) {
+    throw new GameApiError("No upgrade is available to sell.", "NO_UPGRADE_TO_SELL", 409);
+  }
+
+  const refund = sellUpgradeRefund(tile, property.upgrade_level);
+  const nextLevel = property.upgrade_level - 1;
+  const { error: downgradeError } = await supabase
+    .from("properties")
+    .update({ upgrade_level: nextLevel })
+    .eq("id", property.id)
+    .eq("owner_player_id", player.id)
+    .eq("upgrade_level", property.upgrade_level);
+
+  if (downgradeError) {
+    throw new GameApiError(downgradeError.message, "SELL_UPGRADE_FAILED", 500);
+  }
+
+  await updatePlayerMoneyAndStatus(supabase, player, player.money + refund);
+  await writeGameEvent(
+    supabase,
+    currentRoom.id,
+    player.id,
+    "upgrade_sold",
+    `${player.display_name} sold one visitor-facility upgrade at ${tile.name} for ${refund} coins.`,
+    { tileId: tile.id, previousUpgradeLevel: property.upgrade_level, upgradeLevel: nextLevel, refund },
+  );
+  await maybeFinishOrAdvanceTurn(supabase, currentRoom, player.id);
+  const updatedRoom = await loadRoomById(supabase, currentRoom.id);
+  const state = await serializeGameState(supabase, updatedRoom, player.id);
+  await saveGameSnapshot(supabase, currentRoom.id, state as unknown as Json);
+  return state;
+}
+
+export async function sellPendingProperty(roomCode: string, playerId: string, sessionToken: string) {
+  const { supabase, room, player } = await requireGamePlayerSession(roomCode, playerId, sessionToken);
+  assertPlaying(room);
+  await resolveExpiredTurnAction(room.id);
+  const currentRoom = await loadRoomById(supabase, room.id);
+  assertCurrentPlayer(currentRoom, player.id);
+  assertDeadlineActive(currentRoom);
+
+  const { tile, property } = await loadOwnedPendingPropertyForSale(supabase, currentRoom, player);
+
+  if (property.upgrade_level !== 0) {
+    throw new GameApiError("Sell upgrades before selling this property.", "UPGRADES_MUST_BE_SOLD_FIRST", 409);
+  }
+
+  const refund = sellPropertyRefund(tile);
+  const { error: deleteError } = await supabase
+    .from("properties")
+    .delete()
+    .eq("id", property.id)
+    .eq("owner_player_id", player.id)
+    .eq("upgrade_level", 0);
+
+  if (deleteError) {
+    throw new GameApiError(deleteError.message, "SELL_PROPERTY_FAILED", 500);
+  }
+
+  await updatePlayerMoneyAndStatus(supabase, player, player.money + refund);
+  await writeGameEvent(
+    supabase,
+    currentRoom.id,
+    player.id,
+    "property_sold",
+    `${player.display_name} sold landmark rights for ${tile.name} for ${refund} coins.`,
+    { tileId: tile.id, refund },
+  );
   await maybeFinishOrAdvanceTurn(supabase, currentRoom, player.id);
   const updatedRoom = await loadRoomById(supabase, currentRoom.id);
   const state = await serializeGameState(supabase, updatedRoom, player.id);

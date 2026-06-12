@@ -17,6 +17,8 @@ type PendingDecision = {
   currentRent: number | null;
   upgradeCost: number | null;
   newRent: number | null;
+  sellUpgradeRefund: number | null;
+  sellPropertyRefund: number | null;
   secondsRemaining: number;
 };
 
@@ -51,6 +53,8 @@ type GameApiResponse = {
       canRoll: boolean;
       canBuy: boolean;
       canUpgrade: boolean;
+      canSellUpgrade: boolean;
+      canSellProperty: boolean;
       canSkipDecision: boolean;
       secondsRemaining: number;
     };
@@ -137,7 +141,16 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
     return () => window.clearInterval(refreshId);
   }, [isSubmitting, loadState, session, state?.room.status]);
 
-  async function postAction(action: "roll-dice" | "buy-property" | "upgrade-property" | "skip-decision" | "resolve-timeout") {
+  async function postAction(
+    action:
+      | "roll-dice"
+      | "buy-property"
+      | "upgrade-property"
+      | "sell-upgrade"
+      | "sell-property"
+      | "skip-decision"
+      | "resolve-timeout",
+  ) {
     setIsSubmitting(true);
 
     try {
@@ -169,7 +182,7 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
   const hints = state?.hints;
   const currentPlayer = state?.players.find((player) => player.is_current_turn) ?? null;
   const localPlayer = state?.players.find((player) => player.is_you) ?? null;
-  const isYourTurn = Boolean(localPlayer?.is_current_turn);
+  const isYourTurn = Boolean(localPlayer?.is_current_turn || (session?.playerId && state?.room.current_turn_player_id === session.playerId));
   const pendingDecision = state?.pendingDecision ?? null;
   const visualSecondsRemaining = getVisualSecondsRemaining(state?.room.action_deadline_at ?? null, now);
 
@@ -271,13 +284,24 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
                 <p className="pixel-border bg-white p-3">Upgrade cost: {formatCoins(pendingDecision.upgradeCost)}</p>
                 <p className="pixel-border bg-white p-3">Current rent: {formatCoins(pendingDecision.currentRent)}</p>
                 <p className="pixel-border bg-white p-3">New rent: {formatCoins(pendingDecision.newRent)}</p>
+                <p className="pixel-border bg-white p-3">Sell upgrade refund: {formatCoins(pendingDecision.sellUpgradeRefund)}</p>
+                <p className="pixel-border bg-white p-3">Sell property refund: {formatCoins(pendingDecision.sellPropertyRefund)}</p>
                 <p className="pixel-border bg-white p-3">Decision timer: {visualSecondsRemaining}s</p>
               </div>
+              <p className="text-xs font-bold text-[#5a4770]">
+                Sale refunds are intentionally lower than purchase and upgrade costs. Sell upgrades first before selling landmark rights.
+              </p>
               <div className="flex flex-wrap gap-3">
                 <PixelButton disabled={isSubmitting || !hints?.canUpgrade} onClick={() => postAction("upgrade-property")}>Upgrade Facilities</PixelButton>
+                <PixelButton disabled={isSubmitting || !hints?.canSellUpgrade} onClick={() => postAction("sell-upgrade")} variant="secondary">Sell Upgrade</PixelButton>
+                <PixelButton disabled={isSubmitting || !hints?.canSellProperty} onClick={() => postAction("sell-property")} variant="secondary">Sell Property</PixelButton>
                 <PixelButton disabled={isSubmitting || !hints?.canSkipDecision} onClick={() => postAction("skip-decision")} variant="accent">Skip</PixelButton>
               </div>
-              {!hints?.canUpgrade ? <p className="text-xs font-bold text-[#5a4770]">Upgrade is disabled unless the server says this player owns the property, can afford it, and has not reached max level.</p> : null}
+              {!hints?.canUpgrade && !hints?.canSellUpgrade && !hints?.canSellProperty ? (
+                <p className="text-xs font-bold text-[#5a4770]">
+                  Own-property actions are disabled unless the server says this player owns the property and the selected action is legal.
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-3">
