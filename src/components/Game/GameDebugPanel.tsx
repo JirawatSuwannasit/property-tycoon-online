@@ -325,10 +325,12 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
 
   return (
     <section className="mx-auto max-w-7xl px-5 pb-10 sm:px-8 lg:px-12">
-      <PixelPanel className="p-6" tone="mint">
+      <PixelPanel className="relative overflow-hidden bg-[#7a4f2a] p-4 shadow-[8px_8px_0_#2b1f3a]" tone="paper">
+        <div className="absolute inset-x-0 top-0 h-6 bg-[#a66a3d]" aria-hidden="true" />
+        <div className="relative bg-[#f4d58d] bg-[linear-gradient(90deg,rgba(122,79,42,0.14)_1px,transparent_1px),linear-gradient(rgba(122,79,42,0.1)_1px,transparent_1px)] bg-[length:18px_18px] p-5 shadow-[inset_0_0_0_5px_#dfaa62]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Phase 6.7 gameplay actions</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Village Travel Board</p>
             <h2 className="text-3xl font-black">{turnHeadline}</h2>
           </div>
           <PixelButton disabled={isSubmitting} onClick={() => loadState(sessionRef.current)} variant="secondary">
@@ -336,7 +338,7 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
           </PixelButton>
         </div>
 
-        <p className="pixel-border mb-4 bg-[#fff7df] p-3 text-sm font-bold">{message}</p>
+        <p className="mb-4 border-4 border-[#2b1f3a] bg-[#fff7df] p-3 text-sm font-bold shadow-[4px_4px_0_#2b1f3a]">{message}</p>
 
         <PixelDice
           die1={diceDisplay.die1}
@@ -347,26 +349,26 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
         />
 
         {state ? (
-          <div className="grid gap-3 text-sm font-bold text-[#4d3b61] lg:grid-cols-2">
-            <p className="pixel-border bg-[#fff7df] p-3">Room status: {state.room.status}</p>
-            <p className="pixel-border bg-[#fff7df] p-3">Turn phase: {state.room.turn_phase}</p>
-            <p className="pixel-border bg-[#fff7df] p-3">
+          <div className="mt-4 grid gap-3 text-sm font-bold text-[#4d3b61] lg:grid-cols-2">
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">Room status: {state.room.status}</p>
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">Turn phase: {state.room.turn_phase}</p>
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">
               Current turn: {state.room.current_turn_player_name ?? "Waiting..."}
             </p>
-            <p className="pixel-border bg-[#fff7df] p-3">Countdown: {visualSecondsRemaining}s</p>
-            <p className="pixel-border bg-[#fff7df] p-3">Pending: {state.room.pending_action ?? "None"}</p>
-            <p className="pixel-border bg-[#fff7df] p-3">Pending tile: {state.pendingTile?.name ?? "None"}</p>
-            <p className="pixel-border bg-[#fff7df] p-3">Winner: {state.winner?.display_name ?? "None"}</p>
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">Countdown: {visualSecondsRemaining}s</p>
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">Pending: {state.room.pending_action ?? "None"}</p>
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">Pending tile: {state.pendingTile?.name ?? "None"}</p>
+            <p className="border-4 border-[#2b1f3a] bg-[#fff7df] p-3 shadow-[3px_3px_0_#2b1f3a]">Winner: {state.winner?.display_name ?? "None"}</p>
           </div>
         ) : null}
 
         {state?.players.length ? (
-          <div className="mt-5 grid gap-2">
+          <div className="mt-5 grid gap-2 border-4 border-[#2b1f3a] bg-[#d9a45f] p-3 shadow-[4px_4px_0_#2b1f3a]">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Server Turn Order</p>
             {state.players.map((player) => (
               <div
                 key={player.id}
-                className={`pixel-border flex flex-wrap items-center justify-between gap-2 p-3 text-sm font-black ${
+                className={`border-4 border-[#2b1f3a] flex flex-wrap items-center justify-between gap-2 p-3 text-sm font-black shadow-[3px_3px_0_#2b1f3a] ${
                   player.is_current_turn ? "bg-[#ffd166]" : player.is_you ? "bg-[#b8f2d0]" : "bg-[#fff7df]"
                 }`}
               >
@@ -418,7 +420,7 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
           </div>
         ) : null}
 
-        <div className="pixel-border mt-5 bg-[#fff7df] p-4">
+        <div className="mt-5 border-4 border-[#2b1f3a] bg-[#fff7df] p-4 shadow-[5px_5px_0_#2b1f3a]">
           {!state || state.room.status !== "playing" ? (
             <p className="font-bold text-[#4d3b61]">Start the game from the lobby controls to enable server gameplay actions.</p>
           ) : !isYourTurn ? (
@@ -484,14 +486,14 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
         </div>
 
         {state?.events.length ? (
-          <div className="pixel-border mt-5 max-h-72 overflow-y-auto bg-[#fff7df] p-4">
+          <div className="mt-5 max-h-72 overflow-y-auto border-4 border-[#2b1f3a] bg-[#fff7df] p-4 shadow-[5px_5px_0_#2b1f3a]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#5a4770]">Event Log</p>
               <span className="pixel-border bg-[#a0d8ff] px-2 py-1 text-[10px] font-black uppercase">Latest {state.events.length}</span>
             </div>
             <div className="grid gap-2">
               {state.events.slice(0, 12).map((event) => (
-                <div key={event.id} className="pixel-border bg-white p-3 text-xs font-bold text-[#4d3b61]">
+                <div key={event.id} className="border-4 border-[#2b1f3a] bg-white p-3 text-xs font-bold text-[#4d3b61] shadow-[3px_3px_0_#2b1f3a]">
                   <p className="font-black uppercase text-[#2b1f3a]">{event.event_type.replaceAll("_", " ")}</p>
                   <p>{event.message}</p>
                 </div>
@@ -503,6 +505,7 @@ export function GameDebugPanel({ roomCode }: GameDebugPanelProps) {
         <p className="mt-4 text-xs font-bold text-[#5a4770]">
           This panel only displays server-provided state and calls API routes. Dice, movement, money, rent, ownership, upgrades, and timeouts are computed on the server.
         </p>
+        </div>
       </PixelPanel>
     </section>
   );

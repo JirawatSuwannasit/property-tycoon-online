@@ -205,10 +205,12 @@ Phase 7 adds the first full visual board for the game page:
 
 ## Phase 7.5 visual polish and roll feedback
 
-Phase 7.5 makes the active game view feel more like a cozy pixel-art board game while keeping gameplay server-authoritative:
+Phase 7.5 makes the active game view feel more like an original cozy top-down pixel-art adventure board while keeping gameplay server-authoritative:
 
-- The board uses warmer grass, wood, path, banner, and signboard-inspired styling with CSS/Tailwind only; no external or copyrighted assets are added.
-- Pixel dice feedback displays two dice, the individual die values, and the total roll.
+- The board is styled as a tiny Thai landmark journey map with grass terrain, dirt roads, wood trim, fences, flowers, water, signboard details, and a central village/plaza scene created with CSS/Tailwind only.
+- Tiles are destination mini-scenes instead of flat web cards: property stops include small original landmark/stall silhouettes, integrated price/rent labels, owner markers, and visitor-facility upgrade badges.
+- Special stops have distinct visual identities for Start, Chance, Tax, Rest Stop, Storm Detour, and Bonus while remaining original and not using third-party sprites or copyrighted assets.
+- Pixel dice feedback displays two dice, the individual die values, and the total roll using a wood/parchment in-game panel style.
 - The `roll-dice` API returns server-authoritative animation metadata (`die1`, `die2`, `total`, `fromPosition`, `toPosition`, `pathTiles`, `passedStart`, `startBonusAwarded`, `resultingTurnPhase`, and `pendingAction`).
 - The client animates player tokens step by step along the server-provided `pathTiles`, highlights each traversed tile, and shows a small Start bonus badge when the server says Start was passed.
 - Buy, upgrade, sell, and skip buttons remain hidden/disabled while dice or movement animation is running, then reappear from the refreshed server state after animation completes.
